@@ -1,0 +1,169 @@
+import { db } from "../../core/database/prisma.js"
+import { AppError, Errors } from "../../core/errors/AppError.js"
+
+export class SubstitutionService {
+  async findAvailableTeachers(schoolId: string, date: Date, periodId: string) {
+    const dayOfWeek = this.getDayOfWeek(date)
+    const weekStart = this.getWeekStart(date)
+
+    const allTeachers = await db.user.findMany({
+      where: {
+        schoolId,
+        isActive: true,
+        role: { in: ["CLASS_TEACHER","SUBJECT_TEACHER","TEMP_TEACHER","COORDINATOR","VICE_PRINCIPAL"] },
+      },
+      select: { id: true, name: true, role: true },
+    })
+
+    const busySlots = await db.timetableSlot.findMany({
+      where: { schoolId, periodId, dayOfWeek: dayOfWeek as any, weekStartDate: weekStart },
+      select: { teacherId: true },
+    })
+
+    const busyIds = new Set(busySlots.map(s => s.teacherId))
+    const available = allTeachers.filter(t => !busyIds.has(t.id))
+
+    const counts = await db.timetableSlot.groupBy({
+      by: ["teacherId"],
+      where: { teacherId: { in: available.map(t => t.id) }, weekStartDate: weekStart },
+      _count: { id: true },
+    })
+    const countMap = new Map(counts.map(c => [c.teacherId, c._count.id]))
+
+    return available
+      .map(t => ({ ...t, periodCount: countMap.get(t.id) ?? 0 }))
+      .sort((a, b) => a.periodCount - b.periodCount)
+  }
+
+  async markAbsent(
+    schoolId: string,
+    absentTeacherId: string,
+    date: Date,
+    slotIds: string[],
+    assignedById: string
+  ) {
+    const activeLock = await db.timetableLock.findFirst({
+      where: { schoolId, unlockedAt: null },
+    })
+    if (activeLock) throw Errors.TIMETABLE_LOCKED()
+
+    const created = await Promise.all(
+      slotIds.map(slotId =>
+        db.substitution.create({
+          data: {
+            school:        { connect: { id: schoolId } },
+            timetableSlot: { connect: { id: slotId } },
+            absentTeacher: { connect: { id: absentTeacherId } },
+            assignedBy:    { connect: { id: assignedById } },
+            date,
+            status: "PENDING",
+          },
+        })
+      )
+    )
+    return created
+  }
+
+  async assignSubstitute(
+    substitutionId: string,
+    substituteTeacherId: string,
+    schoolId: string
+  ) {
+    const sub = await db.substitution.findUnique({ where: { id: substitutionId } })
+    if (!sub) throw Errors.NOT_FOUND("Substitution")
+    if (sub.schoolId !== schoolId) throw Errors.FORBIDDEN()
+    if (sub.status !== "PENDING") {
+      throw new AppError("ALREADY_ASSIGNED", "Substitution already assigned", 400)
+    }
+
+    return db.substitution.update({
+      where: { id: substitutionId },
+      data: {
+        substituteTeacher: { connect: { id: substituteTeacherId } },
+        status: "REQUESTED",
+        requestSentAt: new Date(),
+      },
+    })
+  }
+
+  async respond(
+    substitutionId: string,
+    userId: string,
+    action: "accept" | "decline",
+    schoolId: string
+  ) {
+    const sub = await db.substitution.findUnique({
+      where: { id: substitutionId },
+      include: { timetableSlot: true },
+    })
+    if (!sub) throw Errors.NOT_FOUND("Substitution")
+    if (sub.schoolId !== schoolId) throw Errors.FORBIDDEN()
+    if (sub.substituteTeacherId !== userId) throw Errors.FORBIDDEN()
+    if (sub.status !== "REQUESTED") {
+      throw new AppError("INVALID_STATUS", "Substitution is not in REQUESTED state", 400)
+    }
+
+    if (action === "accept") {
+      await db.$transaction([
+        db.substitution.update({
+          where: { id: substitutionId },
+          data: { status: "ACCEPTED", respondedAt: new Date() },
+        }),
+        db.timetableSlot.create({
+          data: {
+            school:        { connect: { id: sub.schoolId } },
+            teacher:       { connect: { id: userId } },
+            class:         { connect: { id: sub.timetableSlot.classId } },
+            subject:       { connect: { id: sub.timetableSlot.subjectId } },
+            period:        { connect: { id: sub.timetableSlot.periodId } },
+            dayOfWeek:     sub.timetableSlot.dayOfWeek,
+            weekStartDate: sub.timetableSlot.weekStartDate,
+          },
+        }),
+      ])
+    } else {
+      await db.substitution.update({
+        where: { id: substitutionId },
+        data: { status: "DECLINED", respondedAt: new Date() },
+      })
+    }
+  }
+
+  async getHistory(schoolId: string, page: number, limit: number) {
+    const [data, total] = await Promise.all([
+      db.substitution.findMany({
+        where: { schoolId },
+        include: {
+          absentTeacher:     { select: { name: true } },
+          substituteTeacher: { select: { name: true } },
+          timetableSlot: {
+            include: {
+              subject: { select: { name: true, code: true } },
+              period:  { select: { periodNumber: true, startTime: true, endTime: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip:  (page - 1) * limit,
+        take:  limit,
+      }),
+      db.substitution.count({ where: { schoolId } }),
+    ])
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+  }
+
+  private getDayOfWeek(date: Date): string {
+    return ["SUN","MON","TUE","WED","THU","FRI","SAT"][date.getDay()]
+  }
+
+  private getWeekStart(date: Date): Date {
+    const d   = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    d.setDate(diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+}
+
+export const substitutionService = new SubstitutionService()
