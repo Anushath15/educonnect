@@ -24,7 +24,6 @@ export class SwapService {
 
     const receiverId = receiverSlot.teacherId
 
-    // Reject if either slot already has a pending swap
     const conflict = await db.swapRequest.findFirst({
       where: {
         status: "PENDING",
@@ -100,7 +99,6 @@ export class SwapService {
       })
     }
 
-    // Accept — load both slots, then swap teachers atomically
     const [requesterSlot, receiverSlot] = await Promise.all([
       db.timetableSlot.findUnique({ where: { id: swap.requesterSlotId } }),
       db.timetableSlot.findUnique({ where: { id: swap.receiverSlotId } }),
@@ -109,20 +107,25 @@ export class SwapService {
       throw new AppError("SLOT_GONE", "One of the timetable slots no longer exists", 400)
     }
 
-    await db.$transaction([
-      db.timetableSlot.update({
-        where: { id: swap.requesterSlotId },
-        data:  { teacherId: receiverSlot.teacherId },
-      }),
-      db.timetableSlot.update({
-        where: { id: swap.receiverSlotId },
-        data:  { teacherId: requesterSlot.teacherId },
-      }),
-      db.swapRequest.update({
+    // Single CASE UPDATE swaps both teachers atomically in one SQL statement.
+    // PostgreSQL checks unique constraints AFTER all rows in the statement are updated,
+    // not row-by-row — this avoids the (teacherId, periodId, dayOfWeek, weekStartDate)
+    // unique constraint violation that would occur with two sequential updates.
+    // UUIDs are database-sourced so $executeRawUnsafe is safe here.
+    await db.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`
+        UPDATE timetable_slots
+        SET teacher_id = CASE
+          WHEN id = '${swap.requesterSlotId}'::uuid THEN '${receiverSlot.teacherId}'::uuid
+          WHEN id = '${swap.receiverSlotId}'::uuid  THEN '${requesterSlot.teacherId}'::uuid
+        END
+        WHERE id IN ('${swap.requesterSlotId}'::uuid, '${swap.receiverSlotId}'::uuid)
+      `)
+      await tx.swapRequest.update({
         where: { id: swapId },
         data:  { status: "ACCEPTED", respondedAt: new Date() },
-      }),
-    ])
+      })
+    })
 
     return db.swapRequest.findUnique({
       where: { id: swapId },
