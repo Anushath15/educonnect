@@ -1,9 +1,9 @@
-import { FastifyInstance } from "fastify"
+﻿import { FastifyInstance } from "fastify"
 import { authService } from "./auth.service.js"
 import { authenticate } from "../../core/middleware/auth.middleware.js"
+import { db } from "../../core/database/prisma.js"
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
-
   fastify.post("/v1/auth/login", async (request, reply) => {
     const { email, password } = request.body as {
       email: string
@@ -50,9 +50,34 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     "/v1/auth/me",
     { preHandler: authenticate },
     async (request, reply) => {
+      const user = await db.user.findUnique({
+        where: { id: request.user.userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          schoolId: true,
+          preferredLanguage: true,
+          lastLoginAt: true,
+          school: {
+            select: {
+              id: true,
+              name: true,
+              subscriptionStatus: true,
+            },
+          },
+        },
+      })
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "User not found" },
+        })
+      }
       return reply.status(200).send({
         success: true,
-        data: request.user,
+        data: user,
       })
     }
   )

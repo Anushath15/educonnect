@@ -3,11 +3,16 @@ import * as SecureStore from "expo-secure-store"
 import { api } from "../api/client"
 
 interface User {
-  userId: string
-  schoolId: string
+  id: string
+  name: string
+  email: string
   role: string
-  name?: string
-  email?: string
+  schoolId: string
+  school?: {
+    id: string
+    name: string
+    subscriptionStatus: string
+  }
 }
 
 interface AuthState {
@@ -40,7 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const meRes = await api.get("/v1/auth/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
-      const user = meRes.data.data
+      const user: User = meRes.data.data
 
       set({
         accessToken,
@@ -84,7 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const meRes = await api.get("/v1/auth/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
-      const user = meRes.data.data
+      const user: User = meRes.data.data
 
       set({
         accessToken,
