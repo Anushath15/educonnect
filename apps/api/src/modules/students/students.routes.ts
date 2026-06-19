@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify"
+﻿import { FastifyInstance } from "fastify"
 import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.js"
 import { requirePermission } from "../../core/middleware/rbac.middleware.js"
 import { db } from "../../core/database/prisma.js"
@@ -75,7 +75,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
   })
 
   fastify.post("/v1/students", {
-    preHandler: [authenticateWithTenant, requirePermission("student:view")],
+    preHandler: [authenticateWithTenant, requirePermission("student:create")],
   }, async (request, reply) => {
     const parsed = studentSchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send({ success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.errors[0].message } })
@@ -100,7 +100,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
   })
 
   fastify.put("/v1/students/:id", {
-    preHandler: [authenticateWithTenant, requirePermission("student:view")],
+    preHandler: [authenticateWithTenant, requirePermission("student:edit")],
   }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const parsed = updateStudentSchema.safeParse(request.body)
@@ -121,7 +121,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
   })
 
   fastify.delete("/v1/students/:id", {
-    preHandler: [authenticateWithTenant, requirePermission("student:view")],
+    preHandler: [authenticateWithTenant, requirePermission("student:edit")],
   }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const existing = await db.student.findFirst({ where: { id, schoolId: request.user.schoolId, isActive: true } })
@@ -131,7 +131,7 @@ export async function studentsRoutes(fastify: FastifyInstance) {
   })
 
   fastify.post("/v1/students/bulk-import", {
-    preHandler: [authenticateWithTenant, requirePermission("student:view")],
+    preHandler: [authenticateWithTenant, requirePermission("student:create")],
   }, async (request, reply) => {
     const data = await request.file()
     if (!data) return reply.status(400).send({ success: false, error: { code: "VALIDATION_ERROR", message: "CSV file is required" } })

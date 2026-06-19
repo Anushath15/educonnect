@@ -1,15 +1,15 @@
-export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+﻿export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   PRINCIPAL: [
     "timetable:view:all","timetable:edit","timetable:generate","timetable:lock",
     "substitution:assign","substitution:accept","swap:request","swap:respond",
-    "student:view","staff:create","staff:edit","permission:manage:roles",
+    "student:view","student:create","student:edit","staff:create","staff:edit","permission:manage:roles",
     "permission:manage:individual","resource:book","school:config",
     "school:reports","announcement:create","audit:view",
   ],
   VICE_PRINCIPAL: [
     "timetable:view:all","timetable:edit","timetable:generate","timetable:lock",
     "substitution:assign","substitution:accept","swap:request","swap:respond",
-    "student:view","staff:create","staff:edit","resource:book",
+    "student:view","student:create","student:edit","staff:create","staff:edit","resource:book",
     "school:reports","announcement:create","audit:view",
   ],
   COORDINATOR: [
@@ -19,7 +19,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   ADMINISTRATOR: [
     "school:config","timetable:generate","timetable:edit","timetable:view:all",
-    "staff:create","staff:edit","student:view","resource:book","school:reports",
+    "staff:create","staff:edit","student:view","student:create","student:edit","resource:book","school:reports",
   ],
   CLASS_TEACHER: [
     "timetable:view:all","substitution:accept","swap:request","swap:respond",
@@ -30,5 +30,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   TEMP_TEACHER: ["timetable:view:all","substitution:accept","resource:book"],
   INTERN: [],
-  OFFICE_STAFF: ["resource:book","announcement:create"],
+  OFFICE_STAFF: ["resource:book","announcement:create","student:create","student:edit"],
 }

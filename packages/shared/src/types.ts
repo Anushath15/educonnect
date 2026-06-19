@@ -314,4 +314,3 @@ export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse
 // apps/api/src/core/permissions/defaults.ts, but nothing backs it yet.
 // Add these types when the schema and routes actually exist - do not
 // guess at the shape in advance, that is exactly what went wrong here
-// the first time.
