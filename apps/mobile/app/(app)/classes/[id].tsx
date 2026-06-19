@@ -1,11 +1,16 @@
 ﻿import React, { useCallback, useEffect, useState } from "react"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Alert, Modal, TextInput,
+  ActivityIndicator, Modal, TextInput,
 } from "react-native"
-import { router, useLocalSearchParams } from "expo-router"
+import { useLocalSearchParams } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 import { api } from "../../../src/api/client"
 import { useAuthStore } from "../../../src/stores/authStore"
+import { useToast } from "../../../src/components/Toast"
+import { ScreenHeader } from "../../../src/components/ScreenHeader"
+import { LoadingView, ErrorView } from "../../../src/components/StatusView"
+import { colors, spacing, radius } from "../../../src/theme"
 import { SCHOOL_CONFIG_ROLES, STUDENT_EDIT_ROLES, ROLE_LABELS } from "@educonnect/shared"
 import type { ClassDetail, Student } from "@educonnect/shared"
 
@@ -14,6 +19,7 @@ type TeacherOption = { id: string; name: string; email: string; role: string }
 export default function ClassDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuthStore()
+  const showToast = useToast()
   const canManageClass = SCHOOL_CONFIG_ROLES.includes((user?.role ?? "") as any)
   const canManageStudents = STUDENT_EDIT_ROLES.includes((user?.role ?? "") as any)
 
@@ -52,7 +58,7 @@ export default function ClassDetailScreen() {
     setTeacherOptionsLoading(true)
     api.get("/v1/teachers")
       .then((res) => setTeacherOptions(res.data.data))
-      .catch(() => Alert.alert("Error", "Could not load teacher list."))
+      .catch(() => showToast("Could not load teacher list.", "error"))
       .finally(() => setTeacherOptionsLoading(false))
   }
 
@@ -61,9 +67,10 @@ export default function ClassDetailScreen() {
     api.patch(`/v1/classes/${id}/teacher`, { classTeacherId: teacherId })
       .then(() => {
         setTeacherPickerOpen(false)
+        showToast(teacherId ? "Class teacher assigned" : "Class teacher removed")
         fetchClass()
       })
-      .catch(() => Alert.alert("Error", "Could not update class teacher."))
+      .catch(() => showToast("Could not update class teacher.", "error"))
       .finally(() => setAssigningTeacherId(null))
   }
 
@@ -74,7 +81,7 @@ export default function ClassDetailScreen() {
 
   const submitStudent = () => {
     if (!sName.trim()) {
-      Alert.alert("Missing name", "Student name is required.")
+      showToast("Student name is required.", "error")
       return
     }
     setSavingStudent(true)
@@ -87,43 +94,22 @@ export default function ClassDetailScreen() {
     })
       .then(() => {
         setStudentModalOpen(false)
+        showToast("Student added")
         fetchClass()
       })
       .catch((err) => {
         const message = err?.response?.data?.error?.message ?? "Could not add student."
-        Alert.alert("Error", message)
+        showToast(message, "error")
       })
       .finally(() => setSavingStudent(false))
   }
 
-  if (loading) return (
-    <View style={styles.center}>
-      <ActivityIndicator size="large" color="#6366F1" />
-      <Text style={styles.loadingText}>Loading class...</Text>
-    </View>
-  )
-
-  if (error || !cls) return (
-    <View style={styles.center}>
-      <Text style={styles.errorText}>{error ?? "Class not found."}</Text>
-      <TouchableOpacity style={styles.retryBtn} onPress={() => fetchClass()}>
-        <Text style={styles.retryText}>Retry</Text>
-      </TouchableOpacity>
-    </View>
-  )
+  if (loading) return <LoadingView label="Loading class..." />
+  if (error || !cls) return <ErrorView message={error ?? "Class not found."} onRetry={() => fetchClass()} />
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.back}>Back</Text>
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.title}>{cls.name} - {cls.section}</Text>
-          <Text style={styles.count}>{cls.academicYear}</Text>
-        </View>
-        <View style={{ width: 48 }} />
-      </View>
+      <ScreenHeader title={`${cls.name} - ${cls.section}`} subtitle={cls.academicYear} />
 
       <FlatList
         data={cls.students}
@@ -148,6 +134,7 @@ export default function ClassDetailScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyRoster}>
+            <Ionicons name="people-outline" size={36} color={colors.textFaint} />
             <Text style={styles.emptyText}>No students yet</Text>
           </View>
         }
@@ -162,7 +149,12 @@ export default function ClassDetailScreen() {
                 {item.rollNumber ? `Roll ${item.rollNumber}` : "No roll number"}
                 {item.parentName ? `  -  ${item.parentName}` : ""}
               </Text>
-              {item.parentPhone && <Text style={styles.studentPhone}>{item.parentPhone}</Text>}
+              {item.parentPhone && (
+                <View style={styles.phoneRow}>
+                  <Ionicons name="call-outline" size={12} color={colors.textFaint} />
+                  <Text style={styles.studentPhone}>{item.parentPhone}</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -170,7 +162,7 @@ export default function ClassDetailScreen() {
 
       {canManageStudents && (
         <TouchableOpacity style={styles.fab} onPress={openAddStudent}>
-          <Text style={styles.fabText}>+ Add Student</Text>
+          <Ionicons name="person-add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       )}
 
@@ -179,7 +171,7 @@ export default function ClassDetailScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Assign Class Teacher</Text>
             {teacherOptionsLoading ? (
-              <ActivityIndicator size="large" color="#6366F1" style={{ marginVertical: 24 }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 24 }} />
             ) : (
               <FlatList
                 data={teacherOptions}
@@ -192,8 +184,8 @@ export default function ClassDetailScreen() {
                       disabled={assigningTeacherId !== null}
                       onPress={() => assignTeacher(null)}
                     >
-                      <Text style={[styles.teacherOptionText, { color: "#EF4444" }]}>Remove class teacher</Text>
-                      {assigningTeacherId === "none" && <ActivityIndicator size="small" color="#EF4444" />}
+                      <Text style={[styles.teacherOptionText, { color: colors.danger }]}>Remove class teacher</Text>
+                      {assigningTeacherId === "none" && <ActivityIndicator size="small" color={colors.danger} />}
                     </TouchableOpacity>
                   ) : null
                 }
@@ -207,7 +199,7 @@ export default function ClassDetailScreen() {
                       <Text style={styles.teacherOptionText}>{item.name}</Text>
                       <Text style={styles.teacherOptionRole}>{ROLE_LABELS[item.role] ?? item.role}</Text>
                     </View>
-                    {assigningTeacherId === item.id && <ActivityIndicator size="small" color="#6366F1" />}
+                    {assigningTeacherId === item.id && <ActivityIndicator size="small" color={colors.primary} />}
                   </TouchableOpacity>
                 )}
               />
@@ -223,10 +215,10 @@ export default function ClassDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add Student</Text>
-            <TextInput style={styles.input} placeholder="Full name" placeholderTextColor="#64748B" value={sName} onChangeText={setSName} />
-            <TextInput style={styles.input} placeholder="Roll number (optional)" placeholderTextColor="#64748B" value={sRollNumber} onChangeText={setSRollNumber} />
-            <TextInput style={styles.input} placeholder="Parent name (optional)" placeholderTextColor="#64748B" value={sParentName} onChangeText={setSParentName} />
-            <TextInput style={styles.input} placeholder="Parent phone (optional)" placeholderTextColor="#64748B" value={sParentPhone} onChangeText={setSParentPhone} keyboardType="phone-pad" />
+            <TextInput style={styles.input} placeholder="Full name" placeholderTextColor={colors.textFaint} value={sName} onChangeText={setSName} />
+            <TextInput style={styles.input} placeholder="Roll number (optional)" placeholderTextColor={colors.textFaint} value={sRollNumber} onChangeText={setSRollNumber} />
+            <TextInput style={styles.input} placeholder="Parent name (optional)" placeholderTextColor={colors.textFaint} value={sParentName} onChangeText={setSParentName} />
+            <TextInput style={styles.input} placeholder="Parent phone (optional)" placeholderTextColor={colors.textFaint} value={sParentPhone} onChangeText={setSParentPhone} keyboardType="phone-pad" />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtnInline} onPress={() => setStudentModalOpen(false)} disabled={savingStudent}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -243,46 +235,35 @@ export default function ClassDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
-  center: { flex: 1, backgroundColor: "#0F172A", justifyContent: "center", alignItems: "center", gap: 12 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: "#1E293B" },
-  backBtn: { width: 48 },
-  back: { color: "#6366F1", fontSize: 15, fontWeight: "600" },
-  headerCenter: { alignItems: "center" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FFFFFF" },
-  count: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  list: { padding: 16, gap: 10, paddingBottom: 100 },
-  teacherCard: { backgroundColor: "#1E293B", borderRadius: 14, padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  teacherLabel: { fontSize: 12, color: "#64748B" },
-  teacherValue: { fontSize: 15, fontWeight: "700", color: "#FFFFFF", marginTop: 2 },
-  teacherEmail: { fontSize: 12, color: "#94A3B8", marginTop: 2 },
-  changeBtn: { borderWidth: 1, borderColor: "#6366F1", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  changeBtnText: { color: "#6366F1", fontWeight: "600", fontSize: 13 },
-  studentCard: { backgroundColor: "#1E293B", borderRadius: 12, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
-  studentAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#6366F133", justifyContent: "center", alignItems: "center" },
-  studentInitial: { color: "#6366F1", fontWeight: "700" },
-  studentName: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
-  studentMeta: { fontSize: 12, color: "#94A3B8", marginTop: 2 },
-  studentPhone: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  emptyRoster: { paddingVertical: 40, alignItems: "center" },
-  emptyText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
-  fab: { position: "absolute", bottom: 24, alignSelf: "center", backgroundColor: "#6366F1", paddingHorizontal: 24, paddingVertical: 14, borderRadius: 28, elevation: 4 },
-  fabText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-  loadingText: { color: "#64748B", fontSize: 14, marginTop: 8 },
-  errorText: { color: "#F87171", fontSize: 15, textAlign: "center", paddingHorizontal: 40 },
-  retryBtn: { backgroundColor: "#6366F1", borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 },
-  retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  modalOverlay: { flex: 1, backgroundColor: "#00000099", justifyContent: "flex-end" },
-  modalCard: { backgroundColor: "#1E293B", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12, maxHeight: "80%" },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#FFFFFF", marginBottom: 8 },
-  input: { backgroundColor: "#0F172A", borderRadius: 10, padding: 14, color: "#FFFFFF", fontSize: 15, borderWidth: 1, borderColor: "#334155" },
-  modalActions: { flexDirection: "row", gap: 12, marginTop: 8 },
-  modalCancelBtn: { borderRadius: 10, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: "#334155", marginTop: 8 },
-  modalCancelBtnInline: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: "#334155" },
-  modalCancelText: { color: "#94A3B8", fontWeight: "600" },
-  modalSaveBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center", backgroundColor: "#6366F1" },
+  container: { flex: 1, backgroundColor: colors.bg },
+  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 100 },
+  teacherCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  teacherLabel: { fontSize: 12, color: colors.textFaint },
+  teacherValue: { fontSize: 15, fontWeight: "700", color: colors.textPrimary, marginTop: 2 },
+  teacherEmail: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  changeBtn: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
+  changeBtnText: { color: colors.primary, fontWeight: "600", fontSize: 13 },
+  studentCard: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, flexDirection: "row", alignItems: "center", gap: spacing.md },
+  studentAvatar: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.primaryMuted, justifyContent: "center", alignItems: "center" },
+  studentInitial: { color: colors.primary, fontWeight: "700" },
+  studentName: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
+  studentMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  phoneRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  studentPhone: { fontSize: 12, color: colors.textFaint },
+  emptyRoster: { paddingVertical: 40, alignItems: "center", gap: spacing.sm },
+  emptyText: { color: colors.textPrimary, fontSize: 16, fontWeight: "600" },
+  fab: { position: "absolute", bottom: 24, right: 24, width: 56, height: 56, borderRadius: radius.full, backgroundColor: colors.primary, justifyContent: "center", alignItems: "center", elevation: 4 },
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" },
+  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xxl, gap: spacing.md, maxHeight: "80%" },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.bg, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: colors.border },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  modalCancelBtn: { borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.border, marginTop: spacing.sm },
+  modalCancelBtnInline: { flex: 1, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.textMuted, fontWeight: "600" },
+  modalSaveBtn: { flex: 1, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", backgroundColor: colors.primary },
   modalSaveText: { color: "#FFFFFF", fontWeight: "700" },
-  teacherOption: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#334155" },
-  teacherOptionText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  teacherOptionRole: { color: "#64748B", fontSize: 12, marginTop: 2 },
+  teacherOption: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  teacherOptionText: { color: colors.textPrimary, fontSize: 14, fontWeight: "600" },
+  teacherOptionRole: { color: colors.textFaint, fontSize: 12, marginTop: 2 },
 })

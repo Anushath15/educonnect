@@ -1,16 +1,21 @@
 ﻿import React, { useCallback, useEffect, useState } from "react"
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Modal, TextInput, Alert,
+  RefreshControl, Modal, TextInput, ActivityIndicator,
 } from "react-native"
 import { router } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
 import { api } from "../../../src/api/client"
 import { useAuthStore } from "../../../src/stores/authStore"
+import { useToast } from "../../../src/components/Toast"
+import { LoadingView, ErrorView, EmptyView } from "../../../src/components/StatusView"
+import { colors, spacing, radius } from "../../../src/theme"
 import { SCHOOL_CONFIG_ROLES } from "@educonnect/shared"
 import type { ClassListItem } from "@educonnect/shared"
 
 export default function ClassesScreen() {
   const { user } = useAuthStore()
+  const showToast = useToast()
   const canManage = SCHOOL_CONFIG_ROLES.includes((user?.role ?? "") as any)
 
   const [classes, setClasses] = useState<ClassListItem[]>([])
@@ -46,41 +51,29 @@ export default function ClassesScreen() {
 
   const submitCreate = () => {
     if (!name.trim() || !section.trim() || !academicYear.trim()) {
-      Alert.alert("Missing fields", "Name, section, and academic year are all required.")
+      showToast("Name, section, and academic year are required.", "error")
       return
     }
     if (!/^\d{4}-\d{4}$/.test(academicYear.trim())) {
-      Alert.alert("Invalid academic year", "Use the format 2024-2025.")
+      showToast("Academic year must look like 2024-2025.", "error")
       return
     }
     setSaving(true)
     api.post("/v1/classes", { name: name.trim(), section: section.trim(), academicYear: academicYear.trim() })
       .then(() => {
         setModalOpen(false)
+        showToast("Class created")
         fetchClasses()
       })
       .catch((err) => {
         const message = err?.response?.data?.error?.message ?? "Could not create class."
-        Alert.alert("Error", message)
+        showToast(message, "error")
       })
       .finally(() => setSaving(false))
   }
 
-  if (loading) return (
-    <View style={styles.center}>
-      <ActivityIndicator size="large" color="#6366F1" />
-      <Text style={styles.loadingText}>Loading classes...</Text>
-    </View>
-  )
-
-  if (error) return (
-    <View style={styles.center}>
-      <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity style={styles.retryBtn} onPress={() => fetchClasses()}>
-        <Text style={styles.retryText}>Retry</Text>
-      </TouchableOpacity>
-    </View>
-  )
+  if (loading) return <LoadingView label="Loading classes..." />
+  if (error) return <ErrorView message={error} onRetry={() => fetchClasses()} />
 
   return (
     <View style={styles.container}>
@@ -90,12 +83,7 @@ export default function ClassesScreen() {
       </View>
 
       {classes.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>No classes yet</Text>
-          {canManage && (
-            <Text style={styles.emptySubText}>Tap the button below to add your first class</Text>
-          )}
-        </View>
+        <EmptyView icon="school-outline" title="No classes yet" subtitle={canManage ? "Tap + to add your first class" : undefined} />
       ) : (
         <FlatList
           data={classes}
@@ -103,7 +91,7 @@ export default function ClassesScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchClasses(true)} tintColor="#6366F1" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchClasses(true)} tintColor={colors.primary} />
           }
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.card} onPress={() => router.push(`/classes/${item.id}`)}>
@@ -122,6 +110,7 @@ export default function ClassesScreen() {
                   {item.classTeacher ? item.classTeacher.name : "No class teacher"}
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
             </TouchableOpacity>
           )}
         />
@@ -129,7 +118,7 @@ export default function ClassesScreen() {
 
       {canManage && (
         <TouchableOpacity style={styles.fab} onPress={openCreate}>
-          <Text style={styles.fabText}>+ Add Class</Text>
+          <Ionicons name="add" size={26} color="#FFFFFF" />
         </TouchableOpacity>
       )}
 
@@ -137,18 +126,9 @@ export default function ClassesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>New Class</Text>
-            <TextInput
-              style={styles.input} placeholder="Name (e.g. 9)" placeholderTextColor="#64748B"
-              value={name} onChangeText={setName}
-            />
-            <TextInput
-              style={styles.input} placeholder="Section (e.g. A)" placeholderTextColor="#64748B"
-              value={section} onChangeText={setSection}
-            />
-            <TextInput
-              style={styles.input} placeholder="Academic year (2024-2025)" placeholderTextColor="#64748B"
-              value={academicYear} onChangeText={setAcademicYear}
-            />
+            <TextInput style={styles.input} placeholder="Name (e.g. 9)" placeholderTextColor={colors.textFaint} value={name} onChangeText={setName} />
+            <TextInput style={styles.input} placeholder="Section (e.g. A)" placeholderTextColor={colors.textFaint} value={section} onChangeText={setSection} />
+            <TextInput style={styles.input} placeholder="Academic year (2024-2025)" placeholderTextColor={colors.textFaint} value={academicYear} onChangeText={setAcademicYear} />
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalOpen(false)} disabled={saving}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
@@ -165,36 +145,28 @@ export default function ClassesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
-  center: { flex: 1, backgroundColor: "#0F172A", justifyContent: "center", alignItems: "center", gap: 12 },
-  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: "#1E293B" },
-  title: { fontSize: 22, fontWeight: "700", color: "#FFFFFF" },
-  count: { fontSize: 13, color: "#64748B", marginTop: 2 },
-  list: { padding: 16, gap: 12, paddingBottom: 100 },
-  card: { backgroundColor: "#1E293B", borderRadius: 14, padding: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cardLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-  classBadge: { width: 48, height: 48, borderRadius: 12, backgroundColor: "#6366F133", justifyContent: "center", alignItems: "center" },
-  classBadgeText: { color: "#6366F1", fontWeight: "700", fontSize: 14 },
-  className: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
-  classYear: { fontSize: 12, color: "#64748B", marginTop: 2 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  header: { paddingTop: 60, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, backgroundColor: colors.surface },
+  title: { fontSize: 22, fontWeight: "700", color: colors.textPrimary },
+  count: { fontSize: 13, color: colors.textFaint, marginTop: 2 },
+  list: { padding: spacing.lg, gap: spacing.md, paddingBottom: 100 },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
+  cardLeft: { flexDirection: "row", alignItems: "center", gap: spacing.md, flex: 1 },
+  classBadge: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.primaryMuted, justifyContent: "center", alignItems: "center" },
+  classBadgeText: { color: colors.primary, fontWeight: "700", fontSize: 14 },
+  className: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  classYear: { fontSize: 12, color: colors.textFaint, marginTop: 2 },
   cardRight: { alignItems: "flex-end" },
-  studentCount: { fontSize: 13, color: "#CBD5E1", fontWeight: "600" },
-  teacherName: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  fab: { position: "absolute", bottom: 24, alignSelf: "center", backgroundColor: "#6366F1", paddingHorizontal: 24, paddingVertical: 14, borderRadius: 28, elevation: 4 },
-  fabText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-  loadingText: { color: "#64748B", fontSize: 14, marginTop: 8 },
-  errorText: { color: "#F87171", fontSize: 15, textAlign: "center", paddingHorizontal: 40 },
-  retryBtn: { backgroundColor: "#6366F1", borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 },
-  retryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
-  emptyText: { color: "#FFFFFF", fontSize: 18, fontWeight: "600" },
-  emptySubText: { color: "#64748B", fontSize: 14, textAlign: "center", paddingHorizontal: 40 },
-  modalOverlay: { flex: 1, backgroundColor: "#00000099", justifyContent: "flex-end" },
-  modalCard: { backgroundColor: "#1E293B", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, gap: 12 },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#FFFFFF", marginBottom: 8 },
-  input: { backgroundColor: "#0F172A", borderRadius: 10, padding: 14, color: "#FFFFFF", fontSize: 15, borderWidth: 1, borderColor: "#334155" },
-  modalActions: { flexDirection: "row", gap: 12, marginTop: 8 },
-  modalCancelBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: "#334155" },
-  modalCancelText: { color: "#94A3B8", fontWeight: "600" },
-  modalSaveBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center", backgroundColor: "#6366F1" },
+  studentCount: { fontSize: 13, color: colors.textSecondary, fontWeight: "600" },
+  teacherName: { fontSize: 12, color: colors.textFaint, marginTop: 2 },
+  fab: { position: "absolute", bottom: 24, right: 24, width: 56, height: 56, borderRadius: radius.full, backgroundColor: colors.primary, justifyContent: "center", alignItems: "center", elevation: 4 },
+  modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" },
+  modalCard: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xxl, gap: spacing.md },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary, marginBottom: spacing.sm },
+  input: { backgroundColor: colors.bg, borderRadius: radius.md, padding: spacing.md, color: colors.textPrimary, fontSize: 15, borderWidth: 1, borderColor: colors.border },
+  modalActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  modalCancelBtn: { flex: 1, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", borderWidth: 1, borderColor: colors.border },
+  modalCancelText: { color: colors.textMuted, fontWeight: "600" },
+  modalSaveBtn: { flex: 1, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: "center", backgroundColor: colors.primary },
   modalSaveText: { color: "#FFFFFF", fontWeight: "700" },
 })
