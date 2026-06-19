@@ -1,146 +1,91 @@
-// ============================================================
+﻿// ============================================================
 // packages/shared/src/constants.ts
+// Mirrors apps/api/src/core/permissions/defaults.ts.
+// This copy is for CLIENT-SIDE UI gating only (hide a button the
+// user cannot use). It is never authoritative - the API enforces
+// the real check independently via requirePermission() on every
+// route. If this drifts from defaults.ts, the UI will be wrong but
+// the API stays correct either way.
 // ============================================================
 
-// --- Role permissions map ---
-// What each role is allowed to do
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  super_admin: ['*'], // full access
-  school_admin: [
-    'manage_staff',
-    'manage_timetable',
-    'manage_substitutions',
-    'manage_resources',
-    'view_reports',
-    'manage_school_settings',
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  PRINCIPAL: [
+    "timetable:view:all", "timetable:edit", "timetable:generate", "timetable:lock",
+    "substitution:assign", "substitution:accept", "swap:request", "swap:respond",
+    "student:view", "staff:create", "staff:edit", "permission:manage:roles",
+    "permission:manage:individual", "resource:book", "school:config",
+    "school:reports", "announcement:create", "audit:view",
   ],
-  principal: [
-    'approve_substitutions',
-    'approve_swaps',
-    'approve_bookings',
-    'view_timetable',
-    'view_staff',
-    'view_reports',
+  VICE_PRINCIPAL: [
+    "timetable:view:all", "timetable:edit", "timetable:generate", "timetable:lock",
+    "substitution:assign", "substitution:accept", "swap:request", "swap:respond",
+    "student:view", "staff:create", "staff:edit", "resource:book",
+    "school:reports", "announcement:create", "audit:view",
   ],
-  vice_principal: [
-    'approve_substitutions',
-    'approve_swaps',
-    'approve_bookings',
-    'view_timetable',
-    'view_staff',
+  COORDINATOR: [
+    "substitution:assign", "substitution:accept", "timetable:view:all",
+    "student:view", "swap:request", "swap:respond", "announcement:create",
+    "school:reports", "audit:view",
   ],
-  class_teacher: [
-    'view_timetable',
-    'request_substitution',
-    'request_swap',
-    'book_resource',
-    'view_own_profile',
+  ADMINISTRATOR: [
+    "school:config", "timetable:generate", "timetable:edit", "timetable:view:all",
+    "staff:create", "staff:edit", "student:view", "resource:book", "school:reports",
   ],
-  teacher: [
-    'view_timetable',
-    'request_substitution',
-    'request_swap',
-    'book_resource',
-    'view_own_profile',
+  CLASS_TEACHER: [
+    "timetable:view:all", "substitution:accept", "swap:request", "swap:respond",
+    "student:view", "resource:book", "announcement:create",
   ],
-  staff: [
-    'view_timetable',
-    'book_resource',
-    'view_own_profile',
+  SUBJECT_TEACHER: [
+    "timetable:view:all", "substitution:accept", "swap:request", "swap:respond", "resource:book",
   ],
-  student: [
-    'view_timetable',
-    'view_own_profile',
-  ],
-  parent: [
-    'view_child_timetable',
-    'view_child_attendance',
-  ],
-};
+  TEMP_TEACHER: ["timetable:view:all", "substitution:accept", "resource:book"],
+  INTERN: [],
+  OFFICE_STAFF: ["resource:book", "announcement:create"],
+}
 
-// --- Subscription plan limits ---
-export const PLAN_LIMITS: Record<string, {
-  maxStaff: number;
-  maxStudents: number;
-  aiTimetable: boolean;
-  pricePerYear: number;
-}> = {
-  basic: {
-    maxStaff: 30,
-    maxStudents: 500,
-    aiTimetable: false,
-    pricePerYear: 12000, // ₹12,000
-  },
-  standard: {
-    maxStaff: 75,
-    maxStudents: 1500,
-    aiTimetable: true,
-    pricePerYear: 25000, // ₹25,000
-  },
-  premium: {
-    maxStaff: 200,
-    maxStudents: 5000,
-    aiTimetable: true,
-    pricePerYear: 38000, // ₹38,000
-  },
-};
+export function hasPermission(role: string, permission: string): boolean {
+  return DEFAULT_ROLE_PERMISSIONS[role]?.includes(permission) ?? false
+}
 
-// --- Week days ---
-export const WEEK_DAYS = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-] as const;
+// Roles permitted to edit staff records (staff:edit holders above).
+// Used to gate the teacher detail screen edit controls client-side.
+export const STAFF_EDIT_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "ADMINISTRATOR"] as const
 
-// --- Period config defaults ---
-export const DEFAULT_PERIODS_PER_DAY = 8;
-export const DEFAULT_PERIOD_DURATION_MINUTES = 45;
-export const DEFAULT_BREAK_DURATION_MINUTES = 15;
+export const ROLE_LABELS: Record<string, string> = {
+  PRINCIPAL: "Principal",
+  VICE_PRINCIPAL: "Vice Principal",
+  COORDINATOR: "Coordinator",
+  ADMINISTRATOR: "Administrator",
+  CLASS_TEACHER: "Class Teacher",
+  SUBJECT_TEACHER: "Subject Teacher",
+  TEMP_TEACHER: "Temp Teacher",
+  INTERN: "Intern",
+  OFFICE_STAFF: "Office Staff",
+}
 
-// --- Tamil Nadu districts (for school registration) ---
-export const TN_DISTRICTS = [
-  'Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem',
-  'Tirunelveli', 'Tiruppur', 'Vellore', 'Erode', 'Thoothukudi',
-  'Dindigul', 'Thanjavur', 'Ranipet', 'Sivaganga', 'Virudhunagar',
-  'Nagapattinam', 'Kanyakumari', 'Dharmapuri', 'Krishnagiri', 'Namakkal',
-  'Perambalur', 'Ariyalur', 'Karur', 'Nilgiris', 'Pudukkottai',
-  'Ramanathapuram', 'Theni', 'Tiruvannamalai', 'Villupuram', 'Cuddalore',
-  'Kallakurichi', 'Chengalpattu', 'Kancheepuram', 'Tiruvarur', 'Tenkasi',
-  'Mayiladuthurai',
-] as const;
+export const ROLE_COLORS: Record<string, string> = {
+  PRINCIPAL: "#7C3AED",
+  VICE_PRINCIPAL: "#6366F1",
+  COORDINATOR: "#0EA5E9",
+  ADMINISTRATOR: "#0EA5E9",
+  CLASS_TEACHER: "#10B981",
+  SUBJECT_TEACHER: "#F59E0B",
+  TEMP_TEACHER: "#EF4444",
+  INTERN: "#8B5CF6",
+  OFFICE_STAFF: "#64748B",
+}
 
-export type TNDistrict = typeof TN_DISTRICTS[number];
+// Matches the DayOfWeek enum in prisma/schema.prisma exactly (MON-SAT, no Sunday)
+export const WORKING_DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"] as const
 
-// --- API route prefixes ---
-export const API_ROUTES = {
-  AUTH: '/api/auth',
-  SCHOOLS: '/api/schools',
-  STAFF: '/api/staff',
-  TIMETABLE: '/api/timetable',
-  SUBSTITUTIONS: '/api/substitutions',
-  SWAPS: '/api/swaps',
-  RESOURCES: '/api/resources',
-  NOTIFICATIONS: '/api/notifications',
-  STUDENTS: '/api/students',
-} as const;
+export const DAY_LABELS: Record<string, string> = {
+  MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri", SAT: "Sat",
+}
 
-// --- Pagination defaults ---
-export const DEFAULT_PAGE = 1;
-export const DEFAULT_LIMIT = 20;
-export const MAX_LIMIT = 100;
+// Real API prefix used by every route in apps/api - confirmed against
+// auth.routes.ts, teachers.routes.ts, timetable.routes.ts, swap routes.
+export const API_PREFIX = "/v1"
 
-// --- Date / time formats ---
-export const DATE_FORMAT = 'YYYY-MM-DD';
-export const TIME_FORMAT = 'HH:mm';
-export const DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
-
-// --- Redis key prefixes (used in backend) ---
-export const REDIS_KEYS = {
-  SESSION: 'session:',
-  TIMETABLE: 'timetable:',
-  OTP: 'otp:',
-  RATE_LIMIT: 'rate_limit:',
-} as const;
+export const DEFAULT_PAGE = 1
+export const DEFAULT_LIMIT = 20
+export const MAX_LIMIT = 100
