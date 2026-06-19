@@ -43,6 +43,13 @@ export default function AppLayout() {
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>Sub</Text>,
         }}
       />
+      <Tabs.Screen
+        name="swap-requests"
+        options={{
+          title: "Swaps",
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>Swap</Text>,
+        }}
+      />
     </Tabs>
   )
 }

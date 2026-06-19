@@ -1,4 +1,4 @@
-import { db } from "../../core/database/prisma.js"
+﻿import { db } from "../../core/database/prisma.js"
 import { AppError, Errors } from "../../core/errors/AppError.js"
 
 export class SwapService {
@@ -63,7 +63,7 @@ export class SwapService {
     if (view === "received") where.receiverId  = userId
     if (view === "all")      where.OR = [{ requesterId: userId }, { receiverId: userId }]
 
-    return db.swapRequest.findMany({
+    const swaps = await db.swapRequest.findMany({
       where,
       include: {
         requester: { select: { name: true, role: true } },
@@ -71,6 +71,34 @@ export class SwapService {
       },
       orderBy: { createdAt: "desc" },
     })
+
+    if (swaps.length === 0) return swaps
+
+    // SwapRequest stores slot IDs as plain strings (not a Prisma relation — see
+    // createSwapRequest/respond/cancel, which all fetch slots manually for the same
+    // reason). Batch-fetch every slot involved in this result set in one query rather
+    // than relying on `include`, which Prisma cannot do across a non-relational field.
+    const slotIds = Array.from(
+      new Set(swaps.flatMap((s) => [s.requesterSlotId, s.receiverSlotId]))
+    )
+
+    const slots = await db.timetableSlot.findMany({
+      where: { id: { in: slotIds } },
+      include: {
+        class:   { select: { name: true, section: true } },
+        subject: { select: { name: true, code: true, colorHex: true } },
+        period:  { select: { periodNumber: true, label: true, startTime: true, endTime: true } },
+      },
+    })
+    const slotMap = new Map(slots.map((slot) => [slot.id, slot]))
+
+    // A slot can be null here if it was deleted after the swap request was created
+    // (e.g. timetable regenerated) — the mobile UI handles this case explicitly.
+    return swaps.map((swap) => ({
+      ...swap,
+      requesterSlot: slotMap.get(swap.requesterSlotId) ?? null,
+      receiverSlot:  slotMap.get(swap.receiverSlotId) ?? null,
+    }))
   }
 
   async respond(
@@ -109,7 +137,7 @@ export class SwapService {
 
     // Single CASE UPDATE swaps both teachers atomically in one SQL statement.
     // PostgreSQL checks unique constraints AFTER all rows in the statement are updated,
-    // not row-by-row � this avoids the (teacherId, periodId, dayOfWeek, weekStartDate)
+    // not row-by-row — this avoids the (teacherId, periodId, dayOfWeek, weekStartDate)
     // unique constraint violation that would occur with two sequential updates.
     // UUIDs are database-sourced so $executeRawUnsafe is safe here.
     await db.$transaction(async (tx) => {

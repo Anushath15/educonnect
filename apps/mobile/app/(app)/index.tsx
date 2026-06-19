@@ -19,6 +19,7 @@ const CARDS = [
   { title: "Timetable", desc: "View and manage class schedules", route: "/timetable" },
   { title: "Teachers", desc: "Manage teachers and assignments", route: "/teachers" },
   { title: "Substitutions", desc: "Handle teacher substitutions", route: "/substitutions" },
+  { title: "Swap Requests", desc: "Review and respond to period swaps", route: "/swap-requests" },
 ]
 
 function getGreeting() {
