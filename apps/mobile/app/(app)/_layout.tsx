@@ -30,6 +30,13 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="classes"
+        options={{
+          title: "Classes",
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>Cls</Text>,
+        }}
+      />
+      <Tabs.Screen
         name="timetable"
         options={{
           title: "Timetable",
