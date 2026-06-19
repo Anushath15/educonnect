@@ -314,3 +314,51 @@ export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse
 // apps/api/src/core/permissions/defaults.ts, but nothing backs it yet.
 // Add these types when the schema and routes actually exist - do not
 // guess at the shape in advance, that is exactly what went wrong here
+
+// --- Class roster & student list (added with classes/students module extension) ---
+// Mirrors apps/api/src/modules/classes/classes.routes.ts and
+// apps/api/src/modules/students/students.routes.ts exactly as deployed.
+
+// GET /v1/classes (list)
+export interface ClassListItem extends Class {
+  classTeacher: Pick<User, "id" | "name"> | null
+  studentCount: number
+}
+
+// GET /v1/classes/:id (detail + roster)
+export interface ClassDetail extends Class {
+  classTeacher: Pick<User, "id" | "name" | "email"> | null
+  students: Student[]
+}
+
+// GET /v1/students (list) - narrower field set, matches the `select` in students.routes.ts
+export interface StudentListItem {
+  id: string
+  name: string
+  rollNumber: string | null
+  admissionNumber: string | null
+  gender: Gender | null
+  bloodGroup: BloodGroup | null
+  photoUrl: string | null
+  joinedDate: string | null
+  isActive: boolean
+  class: Pick<Class, "id" | "name" | "section">
+}
+
+// GET /v1/students/:id - full student + class incl. academicYear
+export interface StudentDetail extends Student {
+  class: Pick<Class, "id" | "name" | "section" | "academicYear">
+}
+
+// POST / PUT /v1/students - full student + class, no academicYear
+export interface StudentWithClassBasic extends Student {
+  class: Pick<Class, "id" | "name" | "section">
+}
+
+// POST /v1/students/bulk-import - errors are plain strings, not objects
+// ("Row 4: name is required"), confirmed against the actual route code.
+export interface BulkImportResult {
+  created: number
+  skipped: number
+  errors: string[]
+}
