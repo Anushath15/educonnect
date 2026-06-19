@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify"
+import { FastifyInstance } from "fastify"
 import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.js"
 import { requirePermission } from "../../core/middleware/rbac.middleware.js"
 import { db } from "../../core/database/prisma.js"
@@ -49,7 +49,7 @@ export async function classesRoutes(fastify: FastifyInstance) {
 
   // GET /v1/classes/:id - detail + roster
   fastify.get("/v1/classes/:id", {
-    preHandler: [authenticateWithTenant],
+    preHandler: [authenticateWithTenant, requirePermission("student:view")],
   }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const cls = await db.class.findFirst({
