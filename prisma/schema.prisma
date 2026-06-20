@@ -82,6 +82,7 @@ model School {
   substitutions      Substitution[]
   swapRequests       SwapRequest[]
   students           Student[]
+  announcements      Announcement[]
 
   @@map("schools")
 }
@@ -115,6 +116,7 @@ model User {
   swapRequestsSent      SwapRequest[]    @relation("SwapRequester")
   swapRequestsReceived  SwapRequest[]    @relation("SwapReceiver")
   timetableLocks        TimetableLock[]
+  announcements         Announcement[]
 
   @@index([schoolId])
   @@index([email])
@@ -301,13 +303,13 @@ model SwapRequest {
 }
 
 model Student {
-  id               String     @id @default(uuid())
+  id               String      @id @default(uuid())
   schoolId         String
   classId          String
   name             String
   rollNumber       String?
   admissionNumber  String?
-  dateOfBirth      DateTime?  @db.Date
+  dateOfBirth      DateTime?   @db.Date
   gender           Gender?
   bloodGroup       BloodGroup?
   photoUrl         String?
@@ -315,12 +317,12 @@ model Student {
   parentName       String?
   parentPhone      String?
   emergencyContact Json?
-  joinedDate       DateTime?  @db.Date
-  isActive         Boolean    @default(true)
-  createdAt        DateTime   @default(now()) @db.Timestamptz
-  updatedAt        DateTime   @updatedAt @db.Timestamptz
-  school           School     @relation(fields: [schoolId], references: [id])
-  class            Class      @relation(fields: [classId], references: [id])
+  joinedDate       DateTime?   @db.Date
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @db.Timestamptz
+  updatedAt        DateTime    @updatedAt @db.Timestamptz
+  school           School      @relation(fields: [schoolId], references: [id])
+  class            Class       @relation(fields: [classId], references: [id])
 
   @@unique([schoolId, rollNumber, classId])
   @@index([schoolId])
@@ -345,4 +347,21 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Announcement {
+  id         String    @id @default(uuid())
+  schoolId   String
+  authorId   String
+  title      String
+  body       String
+  targetRole UserRole?
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @db.Timestamptz
+  school     School    @relation(fields: [schoolId], references: [id])
+  author     User      @relation(fields: [authorId], references: [id])
+
+  @@index([schoolId])
+  @@index([schoolId, createdAt])
+  @@map("announcements")
 }
