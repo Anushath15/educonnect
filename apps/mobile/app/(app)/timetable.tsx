@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { api } from "../../src/api/client"
 import { useAuthStore } from "../../src/stores/authStore"
 import { ScreenHeader } from "../../src/components/ScreenHeader"
+import { LoadingView, ErrorView, EmptyView } from "../../src/components/StatusView"
 import { colors, spacing, radius, typography } from "../../src/theme"
 import { DAY_LABELS, WORKING_DAYS } from "@educonnect/shared"
 import type { TimetableSlotExpanded, DayOfWeek } from "@educonnect/shared"
@@ -35,13 +36,18 @@ function formatWeekLabel(monday: Date): string {
   return `${monday.toLocaleDateString("en-IN", opts)} - ${sat.toLocaleDateString("en-IN", opts)}`
 }
 
+// Maps JS Date.getDay() (0=Sun..6=Sat) onto WORKING_DAYS (["MON"..."SAT"], no Sunday).
+// Sunday falls back to Monday since there's no Sunday tab to select.
+function todayAsWorkingDay(): DayOfWeek {
+  const jsDay = new Date().getDay()
+  const idx = jsDay === 0 ? 0 : jsDay - 1
+  return WORKING_DAYS[idx]
+}
+
 export default function TimetableScreen() {
   const { user } = useAuthStore()
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
-  const [activeDay, setActiveDay] = useState<DayOfWeek>(() => {
-    const idx = getMonday(new Date()).getDay()
-    return WORKING_DAYS[0]
-  })
+  const [activeDay, setActiveDay] = useState<DayOfWeek>(() => todayAsWorkingDay())
 
   const [slots, setSlots] = useState<TimetableSlotExpanded[]>([])
   const [loading, setLoading] = useState(true)
@@ -143,20 +149,11 @@ export default function TimetableScreen() {
       </View>
 
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingView label="Loading timetable..." />
       ) : error ? (
-        <View style={s.center}>
-          <Text style={s.errorText}>{error}</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={loadWeek}>
-            <Text style={s.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorView message={error} onRetry={loadWeek} />
       ) : daySlots.length === 0 ? (
-        <View style={s.center}>
-          <Text style={s.emptyText}>No classes scheduled for {DAY_LABELS[activeDay]}</Text>
-        </View>
+        <EmptyView title={`No classes for ${DAY_LABELS[activeDay]}`} icon="calendar-outline" />
       ) : (
         <ScrollView contentContainerStyle={s.scroll}>
           {daySlots.map((slot) => {
@@ -261,7 +258,6 @@ export default function TimetableScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: spacing.md },
   scroll: { padding: spacing.xl, gap: spacing.sm },
   weekNav: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
@@ -294,10 +290,6 @@ const s = StyleSheet.create({
   slotMeta: { ...typography.caption, marginTop: 2 },
   slotTeacher: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   slotTeacherMine: { color: colors.primary, fontWeight: "600" },
-  errorText: { color: colors.danger, fontSize: 15, textAlign: "center", paddingHorizontal: 40 },
-  retryBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingHorizontal: spacing.xl, paddingVertical: spacing.sm },
-  retryText: { color: colors.textPrimary, fontSize: 14, fontWeight: "600" },
-  emptyText: { color: colors.textFaint, fontSize: 14, textAlign: "center", paddingHorizontal: 40 },
   modalBackdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: "flex-end" },
   modalSheet: {
     backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
