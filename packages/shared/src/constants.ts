@@ -80,3 +80,5 @@ export const API_PREFIX = "/v1"
 export const DEFAULT_PAGE = 1
 export const DEFAULT_LIMIT = 20
 export const MAX_LIMIT = 100
+// Matches substitution:assign - Principal, Vice Principal, Coordinator.
+export const SUBSTITUTION_ASSIGN_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR"] as const

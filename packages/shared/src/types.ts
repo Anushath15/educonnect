@@ -326,3 +326,39 @@ export interface ClassDetail {
   classTeacher: { id: string; name: string; email: string } | null
   students: Student[]
 }
+
+// Shape returned by GET /v1/substitutions (substitution.service.ts getHistory).
+// timetableSlot/absentTeacher/substituteTeacher use Prisma `include` without a
+// nested `select`, so every scalar column comes back even though the service
+// only explicitly selects a few - periodId, date, absentTeacherId,
+// substituteTeacherId are all present on the raw response.
+export interface SubstitutionExpanded {
+  id: string
+  schoolId: string
+  timetableSlotId: string
+  absentTeacherId: string
+  substituteTeacherId: string | null
+  date: string
+  status: SubstitutionStatus
+  assignedById: string | null
+  requestSentAt: string | null
+  respondedAt: string | null
+  declineReason: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  absentTeacher: { name: string }
+  substituteTeacher: { name: string } | null
+  timetableSlot: TimetableSlot & {
+    subject: { name: string; code: string }
+    period: { periodNumber: number; startTime: string; endTime: string }
+  }
+}
+
+// Shape returned by GET /v1/substitutions/available-teachers
+export interface AvailableTeacher {
+  id: string
+  name: string
+  role: UserRole
+  periodCount: number
+}
