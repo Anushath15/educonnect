@@ -1,4 +1,4 @@
-import { db } from "../../core/database/prisma.js"
+﻿import { db } from "../../core/database/prisma.js"
 import { AppError } from "../../core/errors/AppError.js"
 import { TimetableGenerator } from "./engine/generator.js"
 import { TimetableConstraints } from "./engine/types.js"
@@ -110,7 +110,7 @@ export class TimetableService {
       include: {
         class:   { select: { name: true, section: true } },
         subject: { select: { name: true, code: true, colorHex: true } },
-        teacher: { select: { name: true } },
+        teacher: { select: { id: true, name: true } },
         period:  { select: { periodNumber: true, startTime: true, endTime: true } },
       },
       orderBy: [{ dayOfWeek: "asc" }, { period: { periodNumber: "asc" } }],
@@ -118,7 +118,6 @@ export class TimetableService {
   }
 
   async assignSubjectToTeacher(schoolId: string, teacherId: string, subjectId: string) {
-    // Verify teacher belongs to this school
     void schoolId
     return db.teacherSubject.upsert({
       where: { teacherId_subjectId: { teacherId, subjectId } },

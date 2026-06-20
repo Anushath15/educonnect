@@ -39,8 +39,6 @@ export type BloodGroup =
   | "A_POS" | "A_NEG" | "B_POS" | "B_NEG"
   | "O_POS" | "O_NEG" | "AB_POS" | "AB_NEG"
 
-// --- School ---
-
 export interface School {
   id: string
   name: string
@@ -54,10 +52,6 @@ export interface School {
   updatedAt: string
 }
 
-// --- User / Teacher ---
-
-// Shape of the User.teacherConfig Json field, set via
-// PUT /v1/teachers/:id/config (apps/api/src/modules/teachers/teachers.routes.ts)
 export interface TeacherConfig {
   maxPeriodsPerDay?: number
   maxPeriodsPerWeek?: number
@@ -81,7 +75,6 @@ export interface User {
   updatedAt: string
 }
 
-// What GET /v1/auth/me actually returns
 export interface AuthUser {
   id: string
   name: string
@@ -102,8 +95,6 @@ export interface AuthTokenPayload {
   iat: number
   exp: number
 }
-
-// --- Class / Subject / TeacherSubject ---
 
 export interface Class {
   id: string
@@ -138,7 +129,6 @@ export interface TeacherSubject {
   createdAt: string
 }
 
-// Shape returned by GET /v1/teachers and GET /v1/teachers/:id
 export interface TeacherWithSubjects {
   id: string
   name: string
@@ -151,8 +141,6 @@ export interface TeacherWithSubjects {
     subject: Pick<Subject, "id" | "name" | "code" | "colorHex">
   }>
 }
-
-// --- Timetable ---
 
 export interface PeriodDefinition {
   id: string
@@ -181,8 +169,7 @@ export interface TimetableSlot {
   updatedAt: string
 }
 
-// Shape returned by GET /v1/timetable
-// (apps/api/src/modules/timetable/timetable.service.ts getWeekTimetable)
+// Shape returned by GET /v1/timetable (timetable.service.ts getWeekTimetable)
 export interface TimetableSlotExpanded {
   id: string
   dayOfWeek: DayOfWeek
@@ -190,7 +177,7 @@ export interface TimetableSlotExpanded {
   room: string | null
   class: { name: string; section: string }
   subject: { name: string; code: string; colorHex: string }
-  teacher: { name: string }
+  teacher: { id: string; name: string }
   period: { periodNumber: number; startTime: string; endTime: string }
 }
 
@@ -202,8 +189,6 @@ export interface TimetableLock {
   lockedAt: string
   unlockedAt: string | null
 }
-
-// --- Substitutions ---
 
 export interface Substitution {
   id: string
@@ -222,8 +207,6 @@ export interface Substitution {
   updatedAt: string
 }
 
-// --- Swap Requests ---
-
 export interface SwapRequest {
   id: string
   schoolId: string
@@ -240,16 +223,12 @@ export interface SwapRequest {
   updatedAt: string
 }
 
-// Shape returned by GET /v1/swaps
-// (apps/api/src/modules/swap/swap.service.ts listSwaps)
 export interface SwapRequestExpanded extends SwapRequest {
   requester: { name: string; role: UserRole }
   receiver: { name: string; role: UserRole }
   requesterSlot: TimetableSlotExpanded | null
   receiverSlot: TimetableSlotExpanded | null
 }
-
-// --- Students ---
 
 export interface Student {
   id: string
@@ -272,8 +251,6 @@ export interface Student {
   updatedAt: string
 }
 
-// --- Audit ---
-
 export interface AuditLog {
   id: string
   schoolId: string
@@ -286,9 +263,20 @@ export interface AuditLog {
   createdAt: string
 }
 
-// --- API response envelopes ---
-// Every route in apps/api follows this pattern - see core/errors/AppError.ts
-// and the setErrorHandler in app.ts.
+export interface Announcement {
+  id: string
+  schoolId: string
+  authorId: string
+  title: string
+  body: string
+  targetRole: UserRole | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AnnouncementExpanded extends Announcement {
+  author: { id: string; name: string; role: UserRole }
+}
 
 export interface ApiSuccessResponse<T> {
   success: true
@@ -307,58 +295,34 @@ export interface ApiErrorResponse {
 
 export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse
 
-// NOTE: Resource / ResourceBooking / Notification are intentionally NOT
-// defined here. There is no Resource, ResourceBooking, or Notification
-// model in prisma/schema.prisma as of this commit, and no routes for
-// them exist. "resource:book" is a real permission string in
-// apps/api/src/core/permissions/defaults.ts, but nothing backs it yet.
-// Add these types when the schema and routes actually exist - do not
-// guess at the shape in advance, that is exactly what went wrong here
-
-// --- Class roster & student list (added with classes/students module extension) ---
-// Mirrors apps/api/src/modules/classes/classes.routes.ts and
-// apps/api/src/modules/students/students.routes.ts exactly as deployed.
-
-// GET /v1/classes (list)
-export interface ClassListItem extends Class {
-  classTeacher: Pick<User, "id" | "name"> | null
+// Resource / ResourceBooking / Notification intentionally not defined -
+// no model for them exists in prisma/schema.prisma. Add when real.
+// Shape returned by GET /v1/classes (classes.routes.ts)
+export interface ClassListItem {
+  id: string
+  schoolId: string
+  name: string
+  section: string
+  academicYear: string
+  classTeacherId: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  classTeacher: { id: string; name: string } | null
   studentCount: number
 }
 
-// GET /v1/classes/:id (detail + roster)
-export interface ClassDetail extends Class {
-  classTeacher: Pick<User, "id" | "name" | "email"> | null
-  students: Student[]
-}
-
-// GET /v1/students (list) - narrower field set, matches the `select` in students.routes.ts
-export interface StudentListItem {
+// Shape returned by GET /v1/classes/:id (classes.routes.ts) - includes full roster
+export interface ClassDetail {
   id: string
+  schoolId: string
   name: string
-  rollNumber: string | null
-  admissionNumber: string | null
-  gender: Gender | null
-  bloodGroup: BloodGroup | null
-  photoUrl: string | null
-  joinedDate: string | null
+  section: string
+  academicYear: string
+  classTeacherId: string | null
   isActive: boolean
-  class: Pick<Class, "id" | "name" | "section">
-}
-
-// GET /v1/students/:id - full student + class incl. academicYear
-export interface StudentDetail extends Student {
-  class: Pick<Class, "id" | "name" | "section" | "academicYear">
-}
-
-// POST / PUT /v1/students - full student + class, no academicYear
-export interface StudentWithClassBasic extends Student {
-  class: Pick<Class, "id" | "name" | "section">
-}
-
-// POST /v1/students/bulk-import - errors are plain strings, not objects
-// ("Row 4: name is required"), confirmed against the actual route code.
-export interface BulkImportResult {
-  created: number
-  skipped: number
-  errors: string[]
+  createdAt: string
+  updatedAt: string
+  classTeacher: { id: string; name: string; email: string } | null
+  students: Student[]
 }
