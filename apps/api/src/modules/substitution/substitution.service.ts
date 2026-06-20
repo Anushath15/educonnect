@@ -1,4 +1,4 @@
-import { db } from "../../core/database/prisma.js"
+﻿import { db } from "../../core/database/prisma.js"
 import { AppError, Errors } from "../../core/errors/AppError.js"
 
 export class SubstitutionService {
@@ -47,6 +47,22 @@ export class SubstitutionService {
     })
     if (activeLock) throw Errors.TIMETABLE_LOCKED()
 
+    // Verify every slot actually belongs to this teacher, in this school,
+    // before creating substitution records against them.
+    const validSlots = await db.timetableSlot.findMany({
+      where: { id: { in: slotIds }, schoolId, teacherId: absentTeacherId },
+      select: { id: true },
+    })
+    const validSlotIds = new Set(validSlots.map(s => s.id))
+    const invalid = slotIds.filter(id => !validSlotIds.has(id))
+    if (invalid.length > 0) {
+      throw new AppError(
+        "INVALID_SLOT",
+        "One or more selected periods do not belong to this teacher in this school.",
+        400
+      )
+    }
+
     const created = await Promise.all(
       slotIds.map(slotId =>
         db.substitution.create({
@@ -74,6 +90,14 @@ export class SubstitutionService {
     if (sub.schoolId !== schoolId) throw Errors.FORBIDDEN()
     if (sub.status !== "PENDING") {
       throw new AppError("ALREADY_ASSIGNED", "Substitution already assigned", 400)
+    }
+
+    // Verify the proposed substitute is an active teacher in this same school.
+    const substitute = await db.user.findFirst({
+      where: { id: substituteTeacherId, schoolId, isActive: true },
+    })
+    if (!substitute) {
+      throw new AppError("INVALID_TEACHER", "substituteTeacherId is not an active teacher in this school", 400)
     }
 
     return db.substitution.update({
@@ -104,23 +128,30 @@ export class SubstitutionService {
     }
 
     if (action === "accept") {
-      await db.$transaction([
-        db.substitution.update({
-          where: { id: substitutionId },
-          data: { status: "ACCEPTED", respondedAt: new Date() },
-        }),
-        db.timetableSlot.create({
-          data: {
-            school:        { connect: { id: sub.schoolId } },
-            teacher:       { connect: { id: userId } },
-            class:         { connect: { id: sub.timetableSlot.classId } },
-            subject:       { connect: { id: sub.timetableSlot.subjectId } },
-            period:        { connect: { id: sub.timetableSlot.periodId } },
-            dayOfWeek:     sub.timetableSlot.dayOfWeek,
-            weekStartDate: sub.timetableSlot.weekStartDate,
-          },
-        }),
-      ])
+      try {
+        await db.$transaction([
+          db.substitution.update({
+            where: { id: substitutionId },
+            data: { status: "ACCEPTED", respondedAt: new Date() },
+          }),
+          db.timetableSlot.create({
+            data: {
+              school:        { connect: { id: sub.schoolId } },
+              teacher:       { connect: { id: userId } },
+              class:         { connect: { id: sub.timetableSlot.classId } },
+              subject:       { connect: { id: sub.timetableSlot.subjectId } },
+              period:        { connect: { id: sub.timetableSlot.periodId } },
+              dayOfWeek:     sub.timetableSlot.dayOfWeek,
+              weekStartDate: sub.timetableSlot.weekStartDate,
+            },
+          }),
+        ])
+      } catch (err: any) {
+        if (err.code === "P2002") {
+          throw new AppError("SCHEDULE_CONFLICT", "You already have a class scheduled at this time.", 409)
+        }
+        throw err
+      }
     } else {
       await db.substitution.update({
         where: { id: substitutionId },

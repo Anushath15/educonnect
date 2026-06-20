@@ -118,7 +118,19 @@ export class TimetableService {
   }
 
   async assignSubjectToTeacher(schoolId: string, teacherId: string, subjectId: string) {
-    void schoolId
+    // Verify both the teacher and the subject actually belong to this school
+    // before creating the assignment - schoolId was previously unused here.
+    const [teacher, subject] = await Promise.all([
+      db.user.findFirst({ where: { id: teacherId, schoolId, isActive: true } }),
+      db.subject.findFirst({ where: { id: subjectId, schoolId, isActive: true } }),
+    ])
+    if (!teacher) {
+      throw new AppError("INVALID_TEACHER", "teacherId is not an active staff member of this school", 400)
+    }
+    if (!subject) {
+      throw new AppError("INVALID_SUBJECT", "subjectId does not belong to this school", 400)
+    }
+
     return db.teacherSubject.upsert({
       where: { teacherId_subjectId: { teacherId, subjectId } },
       create: { teacherId, subjectId },
