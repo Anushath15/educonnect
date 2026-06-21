@@ -16,6 +16,7 @@ import { teachersRoutes }      from "./modules/teachers/teachers.routes.js"
 import { studentsRoutes }      from "./modules/students/students.routes.js"
 import { swapRoutes }          from "./modules/swap/swap.routes.js"
 import { announcementsRoutes } from "./modules/announcements/announcements.routes.js"
+import { resourceRoutes }      from "./modules/resources/resource.routes.js"
 
 export async function buildApp(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -60,5 +61,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await fastify.register(substitutionRoutes)
   await fastify.register(swapRoutes)
   await fastify.register(announcementsRoutes)
+  await fastify.register(resourceRoutes)
   return fastify
 }

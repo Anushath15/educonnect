@@ -83,6 +83,8 @@ model School {
   swapRequests       SwapRequest[]
   students           Student[]
   announcements      Announcement[]
+  resources          Resource[]
+  resourceBookings   ResourceBooking[]
 
   @@map("schools")
 }
@@ -117,6 +119,7 @@ model User {
   swapRequestsReceived  SwapRequest[]    @relation("SwapReceiver")
   timetableLocks        TimetableLock[]
   announcements         Announcement[]
+  resourceBookings      ResourceBooking[]
 
   @@index([schoolId])
   @@index([email])
@@ -201,6 +204,7 @@ model PeriodDefinition {
   createdAt      DateTime        @default(now()) @db.Timestamptz
   school         School          @relation(fields: [schoolId], references: [id])
   timetableSlots TimetableSlot[]
+  resourceBookings ResourceBooking[]
 
   @@unique([schoolId, periodNumber])
   @@index([schoolId])
@@ -364,4 +368,42 @@ model Announcement {
   @@index([schoolId])
   @@index([schoolId, createdAt])
   @@map("announcements")
+}
+
+model Resource {
+  id        String            @id @default(uuid())
+  schoolId  String
+  name      String
+  type      String
+  capacity  Int?
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now()) @db.Timestamptz
+  updatedAt DateTime          @updatedAt @db.Timestamptz
+  school    School            @relation(fields: [schoolId], references: [id])
+  bookings  ResourceBooking[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@map("resources")
+}
+
+model ResourceBooking {
+  id            String           @id @default(uuid())
+  schoolId      String
+  resourceId    String
+  periodId      String
+  dayOfWeek     DayOfWeek
+  weekStartDate DateTime         @db.Date
+  bookedById    String
+  purpose       String?
+  createdAt     DateTime         @default(now()) @db.Timestamptz
+  school        School           @relation(fields: [schoolId], references: [id])
+  resource      Resource         @relation(fields: [resourceId], references: [id])
+  period        PeriodDefinition @relation(fields: [periodId], references: [id])
+  bookedBy      User             @relation(fields: [bookedById], references: [id])
+
+  @@unique([resourceId, periodId, dayOfWeek, weekStartDate])
+  @@index([schoolId])
+  @@index([weekStartDate])
+  @@map("resource_bookings")
 }

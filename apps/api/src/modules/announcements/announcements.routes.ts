@@ -3,6 +3,7 @@ import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.
 import { requirePermission } from "../../core/middleware/rbac.middleware.js"
 import { db } from "../../core/database/prisma.js"
 import { z } from "zod"
+import type { UserRole } from "@prisma/client"
 
 const ROLE_VALUES = [
   "PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "ADMINISTRATOR",
@@ -35,7 +36,7 @@ export async function announcementsRoutes(fastify: FastifyInstance) {
     const skip     = (pageNum - 1) * limitNum
     const where = {
       schoolId: request.user.schoolId,
-      OR: [{ targetRole: null }, { targetRole: request.user.role }],
+      OR: [{ targetRole: null }, { targetRole: request.user.role as UserRole }],
     }
     const [data, total] = await Promise.all([
       db.announcement.findMany({

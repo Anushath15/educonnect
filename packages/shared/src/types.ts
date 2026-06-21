@@ -362,3 +362,30 @@ export interface AvailableTeacher {
   role: UserRole
   periodCount: number
 }
+
+export interface Resource {
+  id: string
+  schoolId: string
+  name: string
+  type: string
+  capacity: number | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// Shape returned by GET /v1/resource-bookings (resource.service.ts getWeekBookings)
+export interface ResourceBookingExpanded {
+  id: string
+  schoolId: string
+  resourceId: string
+  periodId: string
+  dayOfWeek: DayOfWeek
+  weekStartDate: string
+  bookedById: string
+  purpose: string | null
+  createdAt: string
+  resource: { id: string; name: string; type: string }
+  period: { periodNumber: number; startTime: string; endTime: string }
+  bookedBy: { id: string; name: string }
+}
