@@ -82,3 +82,7 @@ export const DEFAULT_LIMIT = 20
 export const MAX_LIMIT = 100
 // Matches substitution:assign - Principal, Vice Principal, Coordinator.
 export const SUBSTITUTION_ASSIGN_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR"] as const
+
+// Matches swap:request - notably excludes ADMINISTRATOR and TEMP_TEACHER,
+// who can view the timetable but cannot initiate a swap.
+export const SWAP_REQUEST_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "SUBJECT_TEACHER"] as const

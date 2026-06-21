@@ -9,7 +9,7 @@ import { useAuthStore } from "../../src/stores/authStore"
 import { ScreenHeader } from "../../src/components/ScreenHeader"
 import { LoadingView, ErrorView, EmptyView } from "../../src/components/StatusView"
 import { colors, spacing, radius, typography } from "../../src/theme"
-import { DAY_LABELS, WORKING_DAYS } from "@educonnect/shared"
+import { DAY_LABELS, WORKING_DAYS, SWAP_REQUEST_ROLES } from "@educonnect/shared"
 import type { TimetableSlotExpanded, DayOfWeek } from "@educonnect/shared"
 
 function getMonday(d: Date): Date {
@@ -53,6 +53,7 @@ export default function TimetableScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const canRequestSwap = SWAP_REQUEST_ROLES.includes((user?.role ?? "") as any)
   const [swapTarget, setSwapTarget] = useState<TimetableSlotExpanded | null>(null)
   const [chosenMySlotId, setChosenMySlotId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
@@ -63,7 +64,7 @@ export default function TimetableScreen() {
     setError(null)
     api.get("/v1/timetable", { params: { weekStartDate: toISODate(weekStart) } })
       .then((res) => setSlots(res.data.data))
-      .catch(() => setError("Failed to load timetable. Check your connection."))
+      .catch((err) => setError(err?.response?.status === 403 ? "You do not have permission to view the timetable." : "Failed to load timetable. Check your connection."))
       .finally(() => setLoading(false))
   }, [weekStart])
 
@@ -85,6 +86,7 @@ export default function TimetableScreen() {
 
   const openSwapModal = (slot: TimetableSlotExpanded) => {
     if (slot.teacher.id === user?.id) return
+    if (!canRequestSwap) { Alert.alert("Not available", "Your role cannot request class swaps."); return }
     if (mySlotsThisWeek.length === 0) {
       Alert.alert("No classes to offer", "You have no classes scheduled this week to offer in a swap.")
       return
@@ -179,7 +181,7 @@ export default function TimetableScreen() {
                     {isMine ? "Your class" : slot.teacher.name}
                   </Text>
                 </View>
-                {!isMine && (
+                {!isMine && canRequestSwap && (
                   <Ionicons name="swap-horizontal" size={20} color={colors.primary} />
                 )}
               </TouchableOpacity>
