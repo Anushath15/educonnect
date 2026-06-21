@@ -25,7 +25,7 @@ export async function timetableRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.get(
     "/v1/timetable",
-    { preHandler: [authenticateWithTenant] },
+    { preHandler: [authenticateWithTenant, requirePermission("timetable:view:all")] },
     async (request, reply) => {
       const { weekStartDate } = request.query as { weekStartDate: string }
       if (!weekStartDate) {

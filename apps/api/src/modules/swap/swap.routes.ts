@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify"
 import { swapService } from "./swap.service.js"
 import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.js"
+import { requirePermission } from "../../core/middleware/rbac.middleware.js"
 import { z } from "zod"
 
 const createSwapSchema = z.object({
@@ -16,9 +17,9 @@ const respondSchema = z.object({
 
 export async function swapRoutes(fastify: FastifyInstance) {
 
-  // POST /v1/swaps — request a swap
+  // POST /v1/swaps â€” request a swap
   fastify.post("/v1/swaps", {
-    preHandler: [authenticateWithTenant],
+    preHandler: [authenticateWithTenant, requirePermission("swap:request")],
   }, async (request, reply) => {
     const parsed = createSwapSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -47,7 +48,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
     return reply.send({ success: true, data: result })
   })
 
-  // POST /v1/swaps/:id/respond — accept or decline
+  // POST /v1/swaps/:id/respond â€” accept or decline
   fastify.post("/v1/swaps/:id/respond", {
     preHandler: [authenticateWithTenant],
   }, async (request, reply) => {
@@ -66,7 +67,7 @@ export async function swapRoutes(fastify: FastifyInstance) {
     return reply.send({ success: true, data: result })
   })
 
-  // DELETE /v1/swaps/:id — cancel own request
+  // DELETE /v1/swaps/:id â€” cancel own request
   fastify.delete("/v1/swaps/:id", {
     preHandler: [authenticateWithTenant],
   }, async (request, reply) => {
