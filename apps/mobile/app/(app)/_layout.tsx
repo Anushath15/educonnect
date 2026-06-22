@@ -74,6 +74,10 @@ export default function AppLayout() {
         name="announcements"
         options={{ href: null }}
       />
+      <Tabs.Screen
+        name="resources"
+        options={{ href: null }}
+      />
       </Tabs>
   )
 }

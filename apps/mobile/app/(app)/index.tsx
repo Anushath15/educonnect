@@ -12,6 +12,7 @@ const CARDS = [
   { title: "Substitutions",   desc: "Handle teacher absences",              route: "/substitutions" },
   { title: "Swap Requests",   desc: "Review and respond to period swaps",   route: "/swap-requests" },
   { title: "Announcements",   desc: "School-wide notices and updates",      route: "/announcements" },
+  { title: "Resources",      desc: "Book labs, grounds and shared spaces",  route: "/resources" },
 ]
 
 function getGreeting() {

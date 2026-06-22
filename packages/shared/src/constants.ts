@@ -37,13 +37,30 @@ export function hasPermission(role: string, permission: string): boolean {
   return DEFAULT_ROLE_PERMISSIONS[role]?.includes(permission) ?? false
 }
 
+// Roles permitted to edit staff records (staff:edit).
 export const STAFF_EDIT_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "ADMINISTRATOR"] as const
 
-// Matches school:config - Principal + Administrator only (Vice Principal excluded).
+// Matches school:config — Principal + Administrator only.
+// Vice Principal deliberately excluded (matches defaults.ts).
 export const SCHOOL_CONFIG_ROLES = ["PRINCIPAL", "ADMINISTRATOR"] as const
 
 // Matches student:create / student:edit.
 export const STUDENT_EDIT_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "ADMINISTRATOR", "OFFICE_STAFF"] as const
+
+// Matches substitution:assign.
+export const SUBSTITUTION_ASSIGN_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR"] as const
+
+// Matches swap:request.
+export const SWAP_REQUEST_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "SUBJECT_TEACHER"] as const
+
+// Matches announcement:create.
+export const ANNOUNCEMENT_CREATE_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "OFFICE_STAFF"] as const
+
+// Matches resource:book — everyone except INTERN.
+export const RESOURCE_BOOK_ROLES = [
+  "PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "ADMINISTRATOR",
+  "CLASS_TEACHER", "SUBJECT_TEACHER", "TEMP_TEACHER", "OFFICE_STAFF",
+] as const
 
 export const ROLE_LABELS: Record<string, string> = {
   PRINCIPAL: "Principal",
@@ -80,12 +97,3 @@ export const API_PREFIX = "/v1"
 export const DEFAULT_PAGE = 1
 export const DEFAULT_LIMIT = 20
 export const MAX_LIMIT = 100
-// Matches substitution:assign - Principal, Vice Principal, Coordinator.
-export const SUBSTITUTION_ASSIGN_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR"] as const
-
-// Matches swap:request - notably excludes ADMINISTRATOR and TEMP_TEACHER,
-// who can view the timetable but cannot initiate a swap.
-export const SWAP_REQUEST_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "SUBJECT_TEACHER"] as const
-
-// Matches announcement:create
-export const ANNOUNCEMENT_CREATE_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "OFFICE_STAFF"] as const
