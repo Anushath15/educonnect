@@ -2,24 +2,16 @@
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native"
 import { router } from "expo-router"
 import { useAuthStore } from "../../src/stores/authStore"
-
-const ROLE_LABELS: Record<string, string> = {
-  PRINCIPAL: "Principal",
-  VICE_PRINCIPAL: "Vice Principal",
-  COORDINATOR: "Coordinator",
-  ADMINISTRATOR: "Administrator",
-  CLASS_TEACHER: "Class Teacher",
-  SUBJECT_TEACHER: "Subject Teacher",
-  TEMP_TEACHER: "Temp Teacher",
-  INTERN: "Intern",
-  OFFICE_STAFF: "Office Staff",
-}
+import { colors, spacing, radius, typography } from "../../src/theme"
+import { ROLE_LABELS } from "@educonnect/shared"
 
 const CARDS = [
-  { title: "Timetable", desc: "View and manage class schedules", route: "/timetable" },
-  { title: "Teachers", desc: "Manage teachers and assignments", route: "/teachers" },
-  { title: "Substitutions", desc: "Handle teacher substitutions", route: "/substitutions" },
-  { title: "Swap Requests", desc: "Review and respond to period swaps", route: "/swap-requests" },
+  { title: "Timetable",       desc: "View and manage class schedules",      route: "/timetable" },
+  { title: "Teachers",        desc: "Manage teachers and assignments",       route: "/teachers" },
+  { title: "Classes",         desc: "View class rosters and details",        route: "/classes" },
+  { title: "Substitutions",   desc: "Handle teacher absences",              route: "/substitutions" },
+  { title: "Swap Requests",   desc: "Review and respond to period swaps",   route: "/swap-requests" },
+  { title: "Announcements",   desc: "School-wide notices and updates",      route: "/announcements" },
 ]
 
 function getGreeting() {
@@ -40,27 +32,27 @@ export default function DashboardScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.name}>{user?.name ?? "User"}</Text>
-          <Text style={styles.role}>{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</Text>
-          {user?.school && <Text style={styles.school}>{user.school.name}</Text>}
+    <View style={s.container}>
+      <View style={s.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.greeting}>{getGreeting()}</Text>
+          <Text style={s.name}>{user?.name ?? "User"}</Text>
+          <Text style={s.role}>{ROLE_LABELS[user?.role ?? ""] ?? user?.role}</Text>
+          {user?.school && <Text style={s.school}>{user.school.name}</Text>}
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Sign Out</Text>
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+          <Text style={s.logoutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView contentContainerStyle={styles.grid}>
+      <ScrollView contentContainerStyle={s.grid}>
         {CARDS.map((card) => (
           <TouchableOpacity
             key={card.title}
-            style={styles.card}
+            style={s.card}
             onPress={() => router.push(card.route as any)}
           >
-            <Text style={styles.cardTitle}>{card.title}</Text>
-            <Text style={styles.cardDesc}>{card.desc}</Text>
+            <Text style={s.cardTitle}>{card.title}</Text>
+            <Text style={s.cardDesc}>{card.desc}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -68,18 +60,25 @@ export default function DashboardScreen() {
   )
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F172A" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingTop: 60, paddingHorizontal: 20, paddingBottom: 24, backgroundColor: "#1E293B" },
-  headerLeft: { flex: 1 },
-  greeting: { fontSize: 14, color: "#94A3B8" },
-  name: { fontSize: 22, fontWeight: "700", color: "#FFFFFF", marginTop: 2 },
-  role: { fontSize: 13, color: "#6366F1", marginTop: 2, fontWeight: "600" },
-  school: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  logoutBtn: { backgroundColor: "#0F172A", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#334155", marginLeft: 12 },
-  logoutText: { color: "#94A3B8", fontSize: 13 },
-  grid: { padding: 16, gap: 12 },
-  card: { backgroundColor: "#1E293B", borderRadius: 16, padding: 20, marginBottom: 4 },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: "#FFFFFF", marginBottom: 6 },
-  cardDesc: { fontSize: 13, color: "#64748B", lineHeight: 18 },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  header: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
+    paddingTop: 60, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl,
+    backgroundColor: colors.surface,
+  },
+  greeting: { fontSize: 14, color: colors.textMuted },
+  name: { ...typography.title, marginTop: 2 },
+  role: { fontSize: 13, color: colors.primary, marginTop: 2, fontWeight: "600" },
+  school: { ...typography.caption, marginTop: 2 },
+  logoutBtn: {
+    backgroundColor: colors.bg, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    borderWidth: 1, borderColor: colors.border, marginLeft: spacing.md,
+  },
+  logoutText: { color: colors.textMuted, fontSize: 13 },
+  grid: { padding: spacing.lg, gap: spacing.sm },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, marginBottom: 4 },
+  cardTitle: { ...typography.body, fontWeight: "700", color: colors.textPrimary, marginBottom: 6 },
+  cardDesc: { ...typography.caption, lineHeight: 18 },
 })

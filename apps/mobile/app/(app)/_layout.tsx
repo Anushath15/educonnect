@@ -70,6 +70,10 @@ export default function AppLayout() {
           ),
         }}
       />
-    </Tabs>
+    <Tabs.Screen
+        name="announcements"
+        options={{ href: null }}
+      />
+      </Tabs>
   )
 }

@@ -86,3 +86,6 @@ export const SUBSTITUTION_ASSIGN_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDI
 // Matches swap:request - notably excludes ADMINISTRATOR and TEMP_TEACHER,
 // who can view the timetable but cannot initiate a swap.
 export const SWAP_REQUEST_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "SUBJECT_TEACHER"] as const
+
+// Matches announcement:create
+export const ANNOUNCEMENT_CREATE_ROLES = ["PRINCIPAL", "VICE_PRINCIPAL", "COORDINATOR", "CLASS_TEACHER", "OFFICE_STAFF"] as const
