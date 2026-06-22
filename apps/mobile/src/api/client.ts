@@ -1,14 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios"
 import * as SecureStore from "expo-secure-store"
 
-export const API_BASE_URL = "https://educonnect-api.loca.lt"
+export const API_BASE_URL = "https://educonnectapi-production.up.railway.app"
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
-    "bypass-tunnel-reminder": "true",
   },
 })
 
