@@ -1,4 +1,4 @@
-﻿export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   PRINCIPAL: [
     "timetable:view:all","timetable:edit","timetable:generate","timetable:lock",
     "substitution:assign","substitution:accept","swap:request","swap:respond",

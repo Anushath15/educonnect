@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify"
+import { FastifyInstance } from "fastify"
 import { authService } from "./auth.service.js"
 import { authenticate } from "../../core/middleware/auth.middleware.js"
 import { db } from "../../core/database/prisma.js"

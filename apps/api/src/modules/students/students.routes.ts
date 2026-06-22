@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify"
+import { FastifyInstance } from "fastify"
 import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.js"
 import { requirePermission } from "../../core/middleware/rbac.middleware.js"
 import { db } from "../../core/database/prisma.js"

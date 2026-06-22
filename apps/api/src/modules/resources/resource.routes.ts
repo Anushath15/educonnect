@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify"
+import { FastifyInstance } from "fastify"
 import { resourceService } from "./resource.service.js"
 import { authenticateWithTenant } from "../../core/middleware/tenant.middleware.js"
 import { requirePermission } from "../../core/middleware/rbac.middleware.js"

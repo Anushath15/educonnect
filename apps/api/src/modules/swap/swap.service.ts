@@ -1,4 +1,4 @@
-﻿import { db } from "../../core/database/prisma.js"
+import { db } from "../../core/database/prisma.js"
 import { AppError, Errors } from "../../core/errors/AppError.js"
 
 export class SwapService {
