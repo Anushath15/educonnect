@@ -1,4 +1,4 @@
-import { db } from "../../core/database/prisma.js"
+﻿import { db } from "../../core/database/prisma.js"
 import { AppError, Errors } from "../../core/errors/AppError.js"
 
 export class SwapService {
@@ -117,7 +117,7 @@ export class SwapService {
       throw new AppError("SLOT_GONE", "One of the timetable slots no longer exists", 400)
     }
     
-    await db.transaction([
+    await db.`$transaction([
       db.timetableSlot.update({
         where: { id: swap.requesterSlotId },
         data: { teacherId: receiverSlot.teacherId }
