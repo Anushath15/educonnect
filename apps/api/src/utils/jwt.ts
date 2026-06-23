@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken"
+﻿import jwt from "jsonwebtoken"
 import { env } from "../config/env.js"
 
 const ACCESS_SECRET  = env.JWT_ACCESS_SECRET
 const REFRESH_SECRET = env.JWT_REFRESH_SECRET
-const ACCESS_EXPIRES_IN  = env.JWT_ACCESS_EXPIRES_IN
-const REFRESH_EXPIRES_IN = env.JWT_REFRESH_EXPIRES_IN
+const ACCESS_EXPIRES_IN  = env.JWT_ACCESS_EXPIRES_IN as any
+const REFRESH_EXPIRES_IN = env.JWT_REFRESH_EXPIRES_IN as any
 
 export interface JwtPayload {
   userId: string

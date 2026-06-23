@@ -14,15 +14,15 @@ export async function healthCheck(fastify: FastifyInstance) {
     try {
       await db.$queryRaw`SELECT 1`
       checks.database = true
-    } catch (err) {
-      fastify.log.error("Database health check failed", err)
+    } catch (err: any) {
+      fastify.log.error("Database health check failed: " + err.message)
     }
     
     try {
       await redis.ping()
       checks.redis = true
-    } catch (err) {
-      fastify.log.error("Redis health check failed", err)
+    } catch (err: any) {
+      fastify.log.error("Redis health check failed: " + err.message)
     }
     
     const status = checks.database && checks.redis ? 200 : 503

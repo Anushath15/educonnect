@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client"
+﻿import { PrismaClient } from "@prisma/client"
 import { env } from "../../config/env.js"
 
 declare global {
@@ -13,10 +13,10 @@ if (env.NODE_ENV !== "production") global.__prisma = db
 
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, disconnecting Prisma...")
-  await db.disconnect()
+  await db.$disconnect()
 })
 
 process.on("SIGINT", async () => {
   console.log("SIGINT received, disconnecting Prisma...")
-  await db.disconnect()
+  await db.$disconnect()
 })
