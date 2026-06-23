@@ -10,3 +10,13 @@ export const db = global.__prisma ?? new PrismaClient({
 })
 
 if (env.NODE_ENV !== "production") global.__prisma = db
+
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, disconnecting Prisma...")
+  await db.disconnect()
+})
+
+process.on("SIGINT", async () => {
+  console.log("SIGINT received, disconnecting Prisma...")
+  await db.disconnect()
+})

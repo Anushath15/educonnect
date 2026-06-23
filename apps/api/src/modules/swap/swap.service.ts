@@ -2,7 +2,6 @@ import { db } from "../../core/database/prisma.js"
 import { AppError, Errors } from "../../core/errors/AppError.js"
 
 export class SwapService {
-
   async createSwapRequest(
     schoolId: string,
     requesterId: string,
@@ -14,16 +13,13 @@ export class SwapService {
       db.timetableSlot.findUnique({ where: { id: requesterSlotId } }),
       db.timetableSlot.findUnique({ where: { id: receiverSlotId } }),
     ])
-
     if (!requesterSlot || requesterSlot.schoolId !== schoolId) throw Errors.NOT_FOUND("Requester slot")
     if (!receiverSlot  || receiverSlot.schoolId  !== schoolId) throw Errors.NOT_FOUND("Receiver slot")
     if (requesterSlot.teacherId !== requesterId) throw Errors.FORBIDDEN()
     if (requesterSlotId === receiverSlotId) {
       throw new AppError("INVALID_SWAP", "Cannot swap a slot with itself", 400)
     }
-
     const receiverId = receiverSlot.teacherId
-
     const conflict = await db.swapRequest.findFirst({
       where: {
         status: "PENDING",
@@ -38,7 +34,6 @@ export class SwapService {
     if (conflict) {
       throw new AppError("SLOT_BUSY", "One of the slots already has a pending swap request", 409)
     }
-
     return db.swapRequest.create({
       data: {
         school:          { connect: { id: schoolId } },
@@ -56,13 +51,12 @@ export class SwapService {
       },
     })
   }
-
+  
   async listSwaps(schoolId: string, userId: string, view: "sent" | "received" | "all") {
     const where: any = { schoolId }
     if (view === "sent")     where.requesterId = userId
     if (view === "received") where.receiverId  = userId
     if (view === "all")      where.OR = [{ requesterId: userId }, { receiverId: userId }]
-
     const swaps = await db.swapRequest.findMany({
       where,
       include: {
@@ -71,17 +65,10 @@ export class SwapService {
       },
       orderBy: { createdAt: "desc" },
     })
-
     if (swaps.length === 0) return swaps
-
-    // SwapRequest stores slot IDs as plain strings (not a Prisma relation — see
-    // createSwapRequest/respond/cancel, which all fetch slots manually for the same
-    // reason). Batch-fetch every slot involved in this result set in one query rather
-    // than relying on `include`, which Prisma cannot do across a non-relational field.
     const slotIds = Array.from(
       new Set(swaps.flatMap((s) => [s.requesterSlotId, s.receiverSlotId]))
     )
-
     const slots = await db.timetableSlot.findMany({
       where: { id: { in: slotIds } },
       include: {
@@ -91,16 +78,13 @@ export class SwapService {
       },
     })
     const slotMap = new Map(slots.map((slot) => [slot.id, slot]))
-
-    // A slot can be null here if it was deleted after the swap request was created
-    // (e.g. timetable regenerated) — the mobile UI handles this case explicitly.
     return swaps.map((swap) => ({
       ...swap,
       requesterSlot: slotMap.get(swap.requesterSlotId) ?? null,
       receiverSlot:  slotMap.get(swap.receiverSlotId) ?? null,
     }))
   }
-
+  
   async respond(
     swapId: string,
     userId: string,
@@ -119,14 +103,12 @@ export class SwapService {
       await db.swapRequest.update({ where: { id: swapId }, data: { status: "EXPIRED" } })
       throw new AppError("SWAP_EXPIRED", "This swap request has expired", 400)
     }
-
     if (action === "decline") {
       return db.swapRequest.update({
         where: { id: swapId },
         data:  { status: "DECLINED", declineReason, respondedAt: new Date() },
       })
     }
-
     const [requesterSlot, receiverSlot] = await Promise.all([
       db.timetableSlot.findUnique({ where: { id: swap.requesterSlotId } }),
       db.timetableSlot.findUnique({ where: { id: swap.receiverSlotId } }),
@@ -134,27 +116,22 @@ export class SwapService {
     if (!requesterSlot || !receiverSlot) {
       throw new AppError("SLOT_GONE", "One of the timetable slots no longer exists", 400)
     }
-
-    // Single CASE UPDATE swaps both teachers atomically in one SQL statement.
-    // PostgreSQL checks unique constraints AFTER all rows in the statement are updated,
-    // not row-by-row — this avoids the (teacherId, periodId, dayOfWeek, weekStartDate)
-    // unique constraint violation that would occur with two sequential updates.
-    // UUIDs are database-sourced so $executeRawUnsafe is safe here.
-    await db.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(`
-        UPDATE timetable_slots
-        SET teacher_id = CASE
-          WHEN id = '${swap.requesterSlotId}'::uuid THEN '${receiverSlot.teacherId}'::uuid
-          WHEN id = '${swap.receiverSlotId}'::uuid  THEN '${requesterSlot.teacherId}'::uuid
-        END
-        WHERE id IN ('${swap.requesterSlotId}'::uuid, '${swap.receiverSlotId}'::uuid)
-      `)
-      await tx.swapRequest.update({
+    
+    await db.transaction([
+      db.timetableSlot.update({
+        where: { id: swap.requesterSlotId },
+        data: { teacherId: receiverSlot.teacherId }
+      }),
+      db.timetableSlot.update({
+        where: { id: swap.receiverSlotId },
+        data: { teacherId: requesterSlot.teacherId }
+      }),
+      db.swapRequest.update({
         where: { id: swapId },
         data:  { status: "ACCEPTED", respondedAt: new Date() },
       })
-    })
-
+    ])
+    
     return db.swapRequest.findUnique({
       where: { id: swapId },
       include: {
@@ -163,7 +140,7 @@ export class SwapService {
       },
     })
   }
-
+  
   async cancel(swapId: string, userId: string, schoolId: string) {
     const swap = await db.swapRequest.findUnique({ where: { id: swapId } })
     if (!swap)                        throw Errors.NOT_FOUND("Swap request")
@@ -178,5 +155,4 @@ export class SwapService {
     })
   }
 }
-
 export const swapService = new SwapService()

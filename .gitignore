@@ -8,3 +8,10 @@ dist/
 coverage/
 .env
 apps/api/.env
+# Production
+.env.production
+.env
+*.pem
+*.key
+docker-compose.override.yml
+deploy.log

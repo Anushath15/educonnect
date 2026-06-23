@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios"
 import * as SecureStore from "expo-secure-store"
 
-export const API_BASE_URL = "https://educonnectapi-production.up.railway.app"
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000"
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,7 +14,7 @@ export const api = axios.create({
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await SecureStore.getItemAsync("accessToken")
   if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.Authorization = "Bearer " + token
   }
   return config
 })
@@ -28,12 +28,12 @@ api.interceptors.response.use(
       try {
         const refreshToken = await SecureStore.getItemAsync("refreshToken")
         if (!refreshToken) throw new Error("No refresh token")
-        const res = await axios.post(`${API_BASE_URL}/v1/auth/refresh`, { refreshToken })
+        const res = await axios.post(API_BASE_URL + "/v1/auth/refresh", { refreshToken })
         const { accessToken, refreshToken: newRefresh } = res.data.data
         await SecureStore.setItemAsync("accessToken", accessToken)
         await SecureStore.setItemAsync("refreshToken", newRefresh)
         if (original.headers) {
-          original.headers.Authorization = `Bearer ${accessToken}`
+          original.headers.Authorization = "Bearer " + accessToken
         }
         return api(original)
       } catch {
