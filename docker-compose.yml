@@ -36,8 +36,9 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.root
+      target: runner
     container_name: educonnect_api
     restart: unless-stopped
     ports:
