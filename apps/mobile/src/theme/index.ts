@@ -1,4 +1,4 @@
-﻿// Single source of truth for the app's visual language.
+// Single source of truth for the app's visual language.
 // Every hex value here was already in use across the existing screens -
 // this just names them instead of repeating the literal string everywhere.
 

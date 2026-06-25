@@ -1,4 +1,4 @@
-﻿import React, { createContext, useCallback, useContext, useRef, useState } from "react"
+import React, { createContext, useCallback, useContext, useRef, useState } from "react"
 import { Animated, Text, StyleSheet, View } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { colors, spacing } from "../theme"

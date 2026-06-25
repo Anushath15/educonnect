@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from "fastify"
+import { FastifyInstance } from "fastify"
 import { db } from "./database/prisma.js"
 import { redis } from "./redis/client.js"
 

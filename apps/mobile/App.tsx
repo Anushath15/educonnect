@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from "react"
+import React, { useEffect } from "react"
 import { View, ActivityIndicator, StyleSheet } from "react-native"
 import { StatusBar } from "expo-status-bar"
 import { useAuthStore } from "./src/stores/authStore"

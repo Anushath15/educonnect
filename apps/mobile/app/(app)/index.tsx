@@ -1,4 +1,4 @@
-﻿import React from "react"
+import React from "react"
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native"
 import { router } from "expo-router"
 import { useAuthStore } from "../../src/stores/authStore"

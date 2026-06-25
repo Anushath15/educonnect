@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // packages/shared/src/types.ts
 // Mirrors prisma/schema.prisma exactly. Dates are ISO strings
 // (JSON over HTTP), not Date objects. Keep in sync manually

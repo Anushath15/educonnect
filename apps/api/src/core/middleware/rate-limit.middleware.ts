@@ -1,4 +1,4 @@
-﻿import { FastifyRequest, FastifyReply } from "fastify"
+import { FastifyRequest, FastifyReply } from "fastify"
 import { redis } from "../redis/client.js"
 import { AppError } from "../errors/AppError.js"
 

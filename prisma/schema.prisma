@@ -62,149 +62,129 @@ enum BloodGroup {
   AB_NEG
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  HALF_DAY
+}
+
 model School {
-  id                 String             @id @default(uuid())
-  name               String
-  address            String?
-  phone              String?
-  email              String?
-  subscriptionStatus String             @default("trial")
-  config             Json               @default("{}")
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now()) @db.Timestamptz
-  updatedAt          DateTime           @updatedAt @db.Timestamptz
-  users              User[]
-  classes            Class[]
-  subjects           Subject[]
-  periods            PeriodDefinition[]
-  timetableSlots     TimetableSlot[]
-  timetableLocks     TimetableLock[]
-  substitutions      Substitution[]
-  swapRequests       SwapRequest[]
-  students           Student[]
-  announcements      Announcement[]
-  resources          Resource[]
-  resourceBookings   ResourceBooking[]
+  id                  String              @id @default(uuid())
+  name                String
+  address             String?
+  phone               String?
+  email               String?
+  subscriptionStatus  String              @default("trial")
+  config              Json                @default("{}")
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @db.Timestamptz
+  updatedAt           DateTime            @updatedAt @db.Timestamptz
+  users               User[]
+  classes             Class[]
+  subjects            Subject[]
+  periods             PeriodDefinition[]
+  timetableSlots      TimetableSlot[]
+  timetableLocks      TimetableLock[]
+  substitutions       Substitution[]
+  swapRequests        SwapRequest[]
+  students            Student[]
+  announcements       Announcement[]
+  resources           Resource[]
+  resourceBookings    ResourceBooking[]
+  attendances         Attendance[]
+  attendanceSummaries AttendanceSummary[]
 
   @@map("schools")
 }
 
 model User {
-  id                    String           @id @default(uuid())
-  schoolId              String
-  name                  String
-  email                 String           @unique
-  passwordHash          String
-  role                  UserRole
-  timetablePinHash      String?
-  isActive              Boolean          @default(true)
-  failedLoginCount      Int              @default(0)
-  lockedUntil           DateTime?        @db.Timestamptz
-  lastLoginAt           DateTime?        @db.Timestamptz
-  fcmToken              String?
-  preferredLanguage     String           @default("en")
-  teacherConfig         Json             @default("{}")
-  createdAt             DateTime         @default(now()) @db.Timestamptz
-  updatedAt             DateTime         @updatedAt @db.Timestamptz
-  school                School           @relation(fields: [schoolId], references: [id])
-  refreshTokens         RefreshToken[]
-  auditLogs             AuditLog[]
-  taughtSubjects        TeacherSubject[]
-  classTeacherOf        Class[]          @relation("ClassTeacher")
-  timetableSlots        TimetableSlot[]
-  substitutionsAbsent   Substitution[]   @relation("AbsentTeacher")
-  substitutionsCovered  Substitution[]   @relation("SubstituteTeacher")
-  substitutionsAssigned Substitution[]   @relation("AssignedBy")
-  swapRequestsSent      SwapRequest[]    @relation("SwapRequester")
-  swapRequestsReceived  SwapRequest[]    @relation("SwapReceiver")
-  timetableLocks        TimetableLock[]
-  announcements         Announcement[]
-  resourceBookings      ResourceBooking[]
+  id                  String             @id @default(uuid())
+  schoolId            String
+  name                String
+  email               String
+  passwordHash        String
+  role                UserRole
+  avatarUrl           String?
+  phone               String?
+  preferredLanguage   String             @default("en")
+  fcmToken            String?
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now()) @db.Timestamptz
+  updatedAt           DateTime           @updatedAt @db.Timestamptz
+  school              School             @relation(fields: [schoolId], references: [id])
+  timetableSlots      TimetableSlot[]
+  timetableLocks      TimetableLock[]
+  substitutionsAbsent Substitution[]     @relation("AbsentTeacher")
+  substitutionsSub    Substitution[]     @relation("SubstituteTeacher")
+  substitutionsAssign Substitution[]     @relation("AssignedBy")
+  swapRequestsSent    SwapRequest[]      @relation("SwapRequester")
+  swapRequestsRecv    SwapRequest[]      @relation("SwapReceiver")
+  auditLogs           AuditLog[]
+  announcements       Announcement[]
+  resourceBookings    ResourceBooking[]
+  attendancesMarked   Attendance[]       @relation("MarkedBy")
+  classesAsTeacher    Class[]            @relation("ClassTeacher")
 
   @@index([schoolId])
   @@index([email])
   @@map("users")
 }
 
-model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique
-  ipAddress String?
-  expiresAt DateTime @db.Timestamptz
-  isRevoked Boolean  @default(false)
-  createdAt DateTime @default(now()) @db.Timestamptz
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("refresh_tokens")
-}
-
 model Class {
-  id             String          @id @default(uuid())
-  schoolId       String
-  name           String
-  section        String
-  academicYear   String
-  classTeacherId String?
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @db.Timestamptz
-  updatedAt      DateTime        @updatedAt @db.Timestamptz
-  school         School          @relation(fields: [schoolId], references: [id])
-  classTeacher   User?           @relation("ClassTeacher", fields: [classTeacherId], references: [id])
-  timetableSlots TimetableSlot[]
-  students       Student[]
+  id                  String              @id @default(uuid())
+  schoolId            String
+  name                String
+  section             String?
+  classTeacherId      String?
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @db.Timestamptz
+  updatedAt           DateTime            @updatedAt @db.Timestamptz
+  school              School              @relation(fields: [schoolId], references: [id])
+  classTeacher        User?               @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  timetableSlots      TimetableSlot[]
+  students            Student[]
+  attendances         Attendance[]
+  attendanceSummaries AttendanceSummary[]
 
-  @@unique([schoolId, name, section, academicYear])
+  @@unique([schoolId, name, section])
   @@index([schoolId])
+  @@index([classTeacherId])
   @@map("classes")
 }
 
 model Subject {
-  id             String           @id @default(uuid())
+  id             String          @id @default(uuid())
   schoolId       String
   name           String
-  code           String
-  colorHex       String           @default("#7C6FFF")
-  periodsPerWeek Int              @default(5)
-  isActive       Boolean          @default(true)
-  createdAt      DateTime         @default(now()) @db.Timestamptz
-  updatedAt      DateTime         @updatedAt @db.Timestamptz
-  school         School           @relation(fields: [schoolId], references: [id])
-  teachers       TeacherSubject[]
+  code           String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now()) @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @db.Timestamptz
+  school         School          @relation(fields: [schoolId], references: [id])
   timetableSlots TimetableSlot[]
 
-  @@unique([schoolId, code])
+  @@unique([schoolId, name])
   @@index([schoolId])
   @@map("subjects")
 }
 
-model TeacherSubject {
-  id            String   @id @default(uuid())
-  teacherId     String
-  subjectId     String
-  isPrimary     Boolean  @default(false)
-  canSubstitute Boolean  @default(true)
-  createdAt     DateTime @default(now()) @db.Timestamptz
-  teacher       User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject       Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-
-  @@unique([teacherId, subjectId])
-  @@map("teacher_subjects")
-}
-
 model PeriodDefinition {
-  id             String          @id @default(uuid())
-  schoolId       String
-  periodNumber   Int
-  label          String?
-  startTime      String
-  endTime        String
-  isBreak        Boolean         @default(false)
-  createdAt      DateTime        @default(now()) @db.Timestamptz
-  school         School          @relation(fields: [schoolId], references: [id])
-  timetableSlots TimetableSlot[]
+  id               String            @id @default(uuid())
+  schoolId         String
+  periodNumber     Int
+  startTime        String
+  endTime          String
+  label            String?
+  isBreak          Boolean           @default(false)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now()) @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @db.Timestamptz
+  school           School            @relation(fields: [schoolId], references: [id])
+  timetableSlots   TimetableSlot[]
   resourceBookings ResourceBooking[]
+  attendances      Attendance[]
 
   @@unique([schoolId, periodNumber])
   @@index([schoolId])
@@ -307,26 +287,28 @@ model SwapRequest {
 }
 
 model Student {
-  id               String      @id @default(uuid())
-  schoolId         String
-  classId          String
-  name             String
-  rollNumber       String?
-  admissionNumber  String?
-  dateOfBirth      DateTime?   @db.Date
-  gender           Gender?
-  bloodGroup       BloodGroup?
-  photoUrl         String?
-  address          String?
-  parentName       String?
-  parentPhone      String?
-  emergencyContact Json?
-  joinedDate       DateTime?   @db.Date
-  isActive         Boolean     @default(true)
-  createdAt        DateTime    @default(now()) @db.Timestamptz
-  updatedAt        DateTime    @updatedAt @db.Timestamptz
-  school           School      @relation(fields: [schoolId], references: [id])
-  class            Class       @relation(fields: [classId], references: [id])
+  id                  String              @id @default(uuid())
+  schoolId            String
+  classId             String
+  name                String
+  rollNumber          String?
+  admissionNumber     String?
+  dateOfBirth         DateTime?           @db.Date
+  gender              Gender?
+  bloodGroup          BloodGroup?
+  photoUrl            String?
+  address             String?
+  parentName          String?
+  parentPhone         String?
+  emergencyContact    Json?
+  joinedDate          DateTime?           @db.Date
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @db.Timestamptz
+  updatedAt           DateTime            @updatedAt @db.Timestamptz
+  school              School              @relation(fields: [schoolId], references: [id])
+  class               Class               @relation(fields: [classId], references: [id])
+  attendances         Attendance[]
+  attendanceSummaries AttendanceSummary[]
 
   @@unique([schoolId, rollNumber, classId])
   @@index([schoolId])
@@ -406,4 +388,55 @@ model ResourceBooking {
   @@index([schoolId])
   @@index([weekStartDate])
   @@map("resource_bookings")
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  schoolId   String
+  studentId  String
+  classId    String
+  date       DateTime         @db.Date
+  periodId   String?
+  status     AttendanceStatus
+  markedById String
+  notes      String?
+  createdAt  DateTime         @default(now()) @db.Timestamptz
+  updatedAt  DateTime         @updatedAt @db.Timestamptz
+
+  school     School           @relation(fields: [schoolId], references: [id])
+  student    Student          @relation(fields: [studentId], references: [id])
+  class      Class            @relation(fields: [classId], references: [id])
+  period     PeriodDefinition? @relation(fields: [periodId], references: [id])
+  markedBy   User             @relation("MarkedBy", fields: [markedById], references: [id])
+
+  @@unique([studentId, date, periodId])
+  @@index([date])
+  @@index([studentId])
+  @@map("attendance")
+}
+
+model AttendanceSummary {
+  id             String   @id @default(uuid())
+  schoolId       String
+  studentId      String
+  classId        String
+  month          Int
+  year           Int
+  totalDays      Int      @default(0)
+  presentDays    Int      @default(0)
+  absentDays     Int      @default(0)
+  lateDays       Int      @default(0)
+  excusedDays    Int      @default(0)
+  halfDays       Int      @default(0)
+  attendanceRate Float    @default(0)
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  school         School   @relation(fields: [schoolId], references: [id])
+  student        Student  @relation(fields: [studentId], references: [id])
+  class          Class    @relation(fields: [classId], references: [id])
+
+  @@unique([studentId, month, year])
+  @@index([schoolId])
+  @@index([classId])
+  @@map("attendance_summaries")
 }

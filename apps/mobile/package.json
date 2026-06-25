@@ -8,7 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "build": "expo export",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'No mobile tests yet'",
+    "test:watch": "echo 'No mobile tests yet'"
   },
   "dependencies": {
     "@educonnect/shared": "*",
