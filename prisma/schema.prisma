@@ -1,12 +1,14 @@
 generator client {
   provider = "prisma-client-js"
 }
-
+ 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
+ 
+// ── Enums ─────────────────────────────────────────────────────────────────────
+ 
 enum UserRole {
   PRINCIPAL
   VICE_PRINCIPAL
@@ -18,7 +20,7 @@ enum UserRole {
   INTERN
   OFFICE_STAFF
 }
-
+ 
 enum DayOfWeek {
   MON
   TUE
@@ -27,7 +29,7 @@ enum DayOfWeek {
   FRI
   SAT
 }
-
+ 
 enum SubstitutionStatus {
   PENDING
   REQUESTED
@@ -36,7 +38,7 @@ enum SubstitutionStatus {
   CANCELLED
   COMPLETED
 }
-
+ 
 enum SwapStatus {
   PENDING
   ACCEPTED
@@ -44,13 +46,13 @@ enum SwapStatus {
   EXPIRED
   CANCELLED
 }
-
+ 
 enum Gender {
   MALE
   FEMALE
   OTHER
 }
-
+ 
 enum BloodGroup {
   A_POS
   A_NEG
@@ -61,7 +63,7 @@ enum BloodGroup {
   AB_POS
   AB_NEG
 }
-
+ 
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -69,18 +71,21 @@ enum AttendanceStatus {
   EXCUSED
   HALF_DAY
 }
-
+ 
+// ── Core tenant ───────────────────────────────────────────────────────────────
+ 
 model School {
-  id                  String              @id @default(uuid())
-  name                String
-  address             String?
-  phone               String?
-  email               String?
-  subscriptionStatus  String              @default("trial")
-  config              Json                @default("{}")
-  isActive            Boolean             @default(true)
-  createdAt           DateTime            @default(now()) @db.Timestamptz
-  updatedAt           DateTime            @updatedAt @db.Timestamptz
+  id                 String              @id @default(uuid())
+  name               String
+  address            String?
+  phone              String?
+  email              String?
+  subscriptionStatus String              @default("trial")
+  config             Json                @default("{}")
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now()) @db.Timestamptz
+  updatedAt          DateTime            @updatedAt @db.Timestamptz
+ 
   users               User[]
   classes             Class[]
   subjects            Subject[]
@@ -95,123 +100,175 @@ model School {
   resourceBookings    ResourceBooking[]
   attendances         Attendance[]
   attendanceSummaries AttendanceSummary[]
-
+ 
   @@map("schools")
 }
-
+ 
+// ── Staff / auth ──────────────────────────────────────────────────────────────
+ 
 model User {
-  id                  String             @id @default(uuid())
-  schoolId            String
-  name                String
-  email               String
-  passwordHash        String
-  role                UserRole
-  avatarUrl           String?
-  phone               String?
-  preferredLanguage   String             @default("en")
-  fcmToken            String?
-  isActive            Boolean            @default(true)
-  createdAt           DateTime           @default(now()) @db.Timestamptz
-  updatedAt           DateTime           @updatedAt @db.Timestamptz
-  school              School             @relation(fields: [schoolId], references: [id])
+  id                String   @id @default(uuid())
+  schoolId          String
+  name              String
+  email             String
+  passwordHash      String
+  role              UserRole
+  avatarUrl         String?
+  phone             String?
+  preferredLanguage String   @default("en")
+  fcmToken          String?
+  isActive          Boolean  @default(true)
+  failedLoginCount  Int      @default(0)
+  lockedUntil       DateTime? @db.Timestamptz
+  createdAt         DateTime @default(now()) @db.Timestamptz
+  updatedAt         DateTime @updatedAt @db.Timestamptz
+ 
+  school              School           @relation(fields: [schoolId], references: [id])
+  refreshTokens       RefreshToken[]
+  taughtSubjects      TeacherSubject[]
   timetableSlots      TimetableSlot[]
   timetableLocks      TimetableLock[]
-  substitutionsAbsent Substitution[]     @relation("AbsentTeacher")
-  substitutionsSub    Substitution[]     @relation("SubstituteTeacher")
-  substitutionsAssign Substitution[]     @relation("AssignedBy")
-  swapRequestsSent    SwapRequest[]      @relation("SwapRequester")
-  swapRequestsRecv    SwapRequest[]      @relation("SwapReceiver")
+  substitutionsAbsent Substitution[]   @relation("AbsentTeacher")
+  substitutionsSub    Substitution[]   @relation("SubstituteTeacher")
+  substitutionsAssign Substitution[]   @relation("AssignedBy")
+  swapRequestsSent    SwapRequest[]    @relation("SwapRequester")
+  swapRequestsRecv    SwapRequest[]    @relation("SwapReceiver")
   auditLogs           AuditLog[]
   announcements       Announcement[]
   resourceBookings    ResourceBooking[]
-  attendancesMarked   Attendance[]       @relation("MarkedBy")
-  classesAsTeacher    Class[]            @relation("ClassTeacher")
-
+  attendancesMarked   Attendance[]     @relation("MarkedBy")
+  classesAsTeacher    Class[]          @relation("ClassTeacher")
+ 
+  @@unique([schoolId, email])
   @@index([schoolId])
   @@index([email])
   @@map("users")
 }
-
+ 
+// RESTORED: Removed by other agent — breaks auth.service.ts on next deploy
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime @db.Timestamptz
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+ 
+// ── Curriculum ────────────────────────────────────────────────────────────────
+ 
 model Class {
-  id                  String              @id @default(uuid())
-  schoolId            String
-  name                String
-  section             String?
-  classTeacherId      String?
-  isActive            Boolean             @default(true)
-  createdAt           DateTime            @default(now()) @db.Timestamptz
-  updatedAt           DateTime            @updatedAt @db.Timestamptz
-  school              School              @relation(fields: [schoolId], references: [id])
-  classTeacher        User?               @relation("ClassTeacher", fields: [classTeacherId], references: [id])
-  timetableSlots      TimetableSlot[]
-  students            Student[]
-  attendances         Attendance[]
+  id             String   @id @default(uuid())
+  schoolId       String
+  name           String
+  section        String?
+  academicYear   String?
+  classTeacherId String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+ 
+  school        School              @relation(fields: [schoolId], references: [id])
+  classTeacher  User?               @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  timetableSlots TimetableSlot[]
+  students       Student[]
+  attendances    Attendance[]
   attendanceSummaries AttendanceSummary[]
-
+ 
   @@unique([schoolId, name, section])
   @@index([schoolId])
   @@index([classTeacherId])
   @@map("classes")
 }
-
+ 
 model Subject {
-  id             String          @id @default(uuid())
+  id             String   @id @default(uuid())
   schoolId       String
   name           String
   code           String?
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @db.Timestamptz
-  updatedAt      DateTime        @updatedAt @db.Timestamptz
-  school         School          @relation(fields: [schoolId], references: [id])
+  // RESTORED: stripped by other agent — timetable generator needs these
+  colorHex       String   @default("#7C6FFF")
+  periodsPerWeek Int      @default(5)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+ 
+  school         School           @relation(fields: [schoolId], references: [id])
+  taughtSubjects TeacherSubject[]
   timetableSlots TimetableSlot[]
-
+ 
   @@unique([schoolId, name])
   @@index([schoolId])
   @@map("subjects")
 }
-
+ 
+// RESTORED: Removed by other agent — timetable generator needs teacher-subject mappings
+model TeacherSubject {
+  teacherId     String
+  subjectId     String
+  isPrimary     Boolean  @default(false)
+  canSubstitute Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+ 
+  teacher Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+ 
+  @@id([teacherId, subjectId])
+  @@index([subjectId])
+  @@map("teacher_subjects")
+}
+ 
 model PeriodDefinition {
-  id               String            @id @default(uuid())
-  schoolId         String
-  periodNumber     Int
-  startTime        String
-  endTime          String
-  label            String?
-  isBreak          Boolean           @default(false)
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now()) @db.Timestamptz
-  updatedAt        DateTime          @updatedAt @db.Timestamptz
+  id           String   @id @default(uuid())
+  schoolId     String
+  periodNumber Int
+  startTime    String
+  endTime      String
+  label        String?
+  isBreak      Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+ 
   school           School            @relation(fields: [schoolId], references: [id])
   timetableSlots   TimetableSlot[]
   resourceBookings ResourceBooking[]
   attendances      Attendance[]
-
+ 
   @@unique([schoolId, periodNumber])
   @@index([schoolId])
   @@map("period_definitions")
 }
-
+ 
+// ── Timetable ─────────────────────────────────────────────────────────────────
+ 
 model TimetableSlot {
-  id            String           @id @default(uuid())
+  id            String    @id @default(uuid())
   schoolId      String
   teacherId     String
   classId       String
   subjectId     String
   periodId      String
   dayOfWeek     DayOfWeek
-  weekStartDate DateTime         @db.Date
+  weekStartDate DateTime  @db.Date
   room          String?
-  isActive      Boolean          @default(true)
-  slotType      String           @default("regular")
-  createdAt     DateTime         @default(now()) @db.Timestamptz
-  updatedAt     DateTime         @updatedAt @db.Timestamptz
+  slotType      String    @default("regular")
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+ 
   school        School           @relation(fields: [schoolId], references: [id])
   teacher       User             @relation(fields: [teacherId], references: [id])
   class         Class            @relation(fields: [classId], references: [id])
   subject       Subject          @relation(fields: [subjectId], references: [id])
   period        PeriodDefinition @relation(fields: [periodId], references: [id])
   substitutions Substitution[]
-
+ 
   @@unique([teacherId, periodId, dayOfWeek, weekStartDate])
   @@unique([classId, periodId, dayOfWeek, weekStartDate])
   @@index([schoolId])
@@ -220,7 +277,7 @@ model TimetableSlot {
   @@index([weekStartDate])
   @@map("timetable_slots")
 }
-
+ 
 model TimetableLock {
   id         String    @id @default(uuid())
   schoolId   String
@@ -228,13 +285,16 @@ model TimetableLock {
   reason     String?
   lockedAt   DateTime  @default(now()) @db.Timestamptz
   unlockedAt DateTime? @db.Timestamptz
-  school     School    @relation(fields: [schoolId], references: [id])
-  lockedBy   User      @relation(fields: [lockedById], references: [id])
-
+ 
+  school    School @relation(fields: [schoolId], references: [id])
+  lockedBy  User   @relation(fields: [lockedById], references: [id])
+ 
   @@index([schoolId])
   @@map("timetable_locks")
 }
-
+ 
+// ── Substitution & Swap ───────────────────────────────────────────────────────
+ 
 model Substitution {
   id                  String             @id @default(uuid())
   schoolId            String
@@ -250,18 +310,19 @@ model Substitution {
   notes               String?
   createdAt           DateTime           @default(now()) @db.Timestamptz
   updatedAt           DateTime           @updatedAt @db.Timestamptz
-  school              School             @relation(fields: [schoolId], references: [id])
-  timetableSlot       TimetableSlot      @relation(fields: [timetableSlotId], references: [id])
-  absentTeacher       User               @relation("AbsentTeacher", fields: [absentTeacherId], references: [id])
-  substituteTeacher   User?              @relation("SubstituteTeacher", fields: [substituteTeacherId], references: [id])
-  assignedBy          User?              @relation("AssignedBy", fields: [assignedById], references: [id])
-
+ 
+  school            School        @relation(fields: [schoolId], references: [id])
+  timetableSlot     TimetableSlot @relation(fields: [timetableSlotId], references: [id])
+  absentTeacher     User          @relation("AbsentTeacher", fields: [absentTeacherId], references: [id])
+  substituteTeacher User?         @relation("SubstituteTeacher", fields: [substituteTeacherId], references: [id])
+  assignedBy        User?         @relation("AssignedBy", fields: [assignedById], references: [id])
+ 
   @@index([schoolId])
   @@index([date])
   @@index([absentTeacherId])
   @@map("substitutions")
 }
-
+ 
 model SwapRequest {
   id              String     @id @default(uuid())
   schoolId        String
@@ -276,120 +337,53 @@ model SwapRequest {
   respondedAt     DateTime?  @db.Timestamptz
   createdAt       DateTime   @default(now()) @db.Timestamptz
   updatedAt       DateTime   @updatedAt @db.Timestamptz
-  school          School     @relation(fields: [schoolId], references: [id])
-  requester       User       @relation("SwapRequester", fields: [requesterId], references: [id])
-  receiver        User       @relation("SwapReceiver", fields: [receiverId], references: [id])
-
+ 
+  school    School @relation(fields: [schoolId], references: [id])
+  requester User   @relation("SwapRequester", fields: [requesterId], references: [id])
+  receiver  User   @relation("SwapReceiver", fields: [receiverId], references: [id])
+ 
   @@index([schoolId])
   @@index([requesterId])
   @@index([receiverId])
   @@map("swap_requests")
 }
-
+ 
+// ── Students ──────────────────────────────────────────────────────────────────
+ 
 model Student {
-  id                  String              @id @default(uuid())
-  schoolId            String
-  classId             String
-  name                String
-  rollNumber          String?
-  admissionNumber     String?
-  dateOfBirth         DateTime?           @db.Date
-  gender              Gender?
-  bloodGroup          BloodGroup?
-  photoUrl            String?
-  address             String?
-  parentName          String?
-  parentPhone         String?
-  emergencyContact    Json?
-  joinedDate          DateTime?           @db.Date
-  isActive            Boolean             @default(true)
-  createdAt           DateTime            @default(now()) @db.Timestamptz
-  updatedAt           DateTime            @updatedAt @db.Timestamptz
+  id              String     @id @default(uuid())
+  schoolId        String
+  classId         String
+  name            String
+  rollNumber      String?
+  admissionNumber String?
+  dateOfBirth     DateTime?  @db.Date
+  gender          Gender?
+  bloodGroup      BloodGroup?
+  photoUrl        String?
+  address         String?
+  parentName      String?
+  parentPhone     String?
+  emergencyContact Json?
+  joinedDate      DateTime?  @db.Date
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now()) @db.Timestamptz
+  updatedAt       DateTime   @updatedAt @db.Timestamptz
+ 
   school              School              @relation(fields: [schoolId], references: [id])
   class               Class               @relation(fields: [classId], references: [id])
   attendances         Attendance[]
   attendanceSummaries AttendanceSummary[]
-
+ 
   @@unique([schoolId, rollNumber, classId])
   @@index([schoolId])
   @@index([classId])
   @@index([schoolId, name])
   @@map("students")
 }
-
-model AuditLog {
-  id         String   @id @default(uuid())
-  schoolId   String
-  userId     String?
-  action     String
-  entityType String?
-  entityId   String?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now()) @db.Timestamptz
-  user       User?    @relation(fields: [userId], references: [id])
-
-  @@index([schoolId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-model Announcement {
-  id         String    @id @default(uuid())
-  schoolId   String
-  authorId   String
-  title      String
-  body       String
-  targetRole UserRole?
-  createdAt  DateTime  @default(now()) @db.Timestamptz
-  updatedAt  DateTime  @updatedAt @db.Timestamptz
-  school     School    @relation(fields: [schoolId], references: [id])
-  author     User      @relation(fields: [authorId], references: [id])
-
-  @@index([schoolId])
-  @@index([schoolId, createdAt])
-  @@map("announcements")
-}
-
-model Resource {
-  id        String            @id @default(uuid())
-  schoolId  String
-  name      String
-  type      String
-  capacity  Int?
-  isActive  Boolean           @default(true)
-  createdAt DateTime          @default(now()) @db.Timestamptz
-  updatedAt DateTime          @updatedAt @db.Timestamptz
-  school    School            @relation(fields: [schoolId], references: [id])
-  bookings  ResourceBooking[]
-
-  @@unique([schoolId, name])
-  @@index([schoolId])
-  @@map("resources")
-}
-
-model ResourceBooking {
-  id            String           @id @default(uuid())
-  schoolId      String
-  resourceId    String
-  periodId      String
-  dayOfWeek     DayOfWeek
-  weekStartDate DateTime         @db.Date
-  bookedById    String
-  purpose       String?
-  createdAt     DateTime         @default(now()) @db.Timestamptz
-  school        School           @relation(fields: [schoolId], references: [id])
-  resource      Resource         @relation(fields: [resourceId], references: [id])
-  period        PeriodDefinition @relation(fields: [periodId], references: [id])
-  bookedBy      User             @relation(fields: [bookedById], references: [id])
-
-  @@unique([resourceId, periodId, dayOfWeek, weekStartDate])
-  @@index([schoolId])
-  @@index([weekStartDate])
-  @@map("resource_bookings")
-}
-
+ 
+// ── Attendance (new feature — kept from other agent) ──────────────────────────
+ 
 model Attendance {
   id         String           @id @default(uuid())
   schoolId   String
@@ -402,19 +396,20 @@ model Attendance {
   notes      String?
   createdAt  DateTime         @default(now()) @db.Timestamptz
   updatedAt  DateTime         @updatedAt @db.Timestamptz
-
-  school     School           @relation(fields: [schoolId], references: [id])
-  student    Student          @relation(fields: [studentId], references: [id])
-  class      Class            @relation(fields: [classId], references: [id])
-  period     PeriodDefinition? @relation(fields: [periodId], references: [id])
-  markedBy   User             @relation("MarkedBy", fields: [markedById], references: [id])
-
+ 
+  school    School            @relation(fields: [schoolId], references: [id])
+  student   Student           @relation(fields: [studentId], references: [id])
+  class     Class             @relation(fields: [classId], references: [id])
+  period    PeriodDefinition? @relation(fields: [periodId], references: [id])
+  markedBy  User              @relation("MarkedBy", fields: [markedById], references: [id])
+ 
   @@unique([studentId, date, periodId])
+  @@index([schoolId])
   @@index([date])
   @@index([studentId])
   @@map("attendance")
 }
-
+ 
 model AttendanceSummary {
   id             String   @id @default(uuid())
   schoolId       String
@@ -430,13 +425,94 @@ model AttendanceSummary {
   halfDays       Int      @default(0)
   attendanceRate Float    @default(0)
   updatedAt      DateTime @updatedAt @db.Timestamptz
-
-  school         School   @relation(fields: [schoolId], references: [id])
-  student        Student  @relation(fields: [studentId], references: [id])
-  class          Class    @relation(fields: [classId], references: [id])
-
+ 
+  school  School  @relation(fields: [schoolId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+ 
   @@unique([studentId, month, year])
   @@index([schoolId])
   @@index([classId])
   @@map("attendance_summaries")
+}
+ 
+// ── Content & Resources ───────────────────────────────────────────────────────
+ 
+model Announcement {
+  id         String    @id @default(uuid())
+  schoolId   String
+  authorId   String
+  title      String
+  body       String
+  targetRole UserRole?
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @db.Timestamptz
+ 
+  school School @relation(fields: [schoolId], references: [id])
+  author User   @relation(fields: [authorId], references: [id])
+ 
+  @@index([schoolId])
+  @@index([schoolId, createdAt])
+  @@map("announcements")
+}
+ 
+model Resource {
+  id        String   @id @default(uuid())
+  schoolId  String
+  name      String
+  type      String
+  capacity  Int?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+ 
+  school   School            @relation(fields: [schoolId], references: [id])
+  bookings ResourceBooking[]
+ 
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@map("resources")
+}
+ 
+model ResourceBooking {
+  id            String    @id @default(uuid())
+  schoolId      String
+  resourceId    String
+  periodId      String
+  dayOfWeek     DayOfWeek
+  weekStartDate DateTime  @db.Date
+  bookedById    String
+  purpose       String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+ 
+  school    School           @relation(fields: [schoolId], references: [id])
+  resource  Resource         @relation(fields: [resourceId], references: [id])
+  period    PeriodDefinition @relation(fields: [periodId], references: [id])
+  bookedBy  User             @relation(fields: [bookedById], references: [id])
+ 
+  @@unique([resourceId, periodId, dayOfWeek, weekStartDate])
+  @@index([schoolId])
+  @@index([weekStartDate])
+  @@map("resource_bookings")
+}
+ 
+// ── Audit ─────────────────────────────────────────────────────────────────────
+ 
+model AuditLog {
+  id         String   @id @default(uuid())
+  schoolId   String
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now()) @db.Timestamptz
+ 
+  user User? @relation(fields: [userId], references: [id])
+ 
+  @@index([schoolId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
