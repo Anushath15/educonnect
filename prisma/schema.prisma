@@ -104,24 +104,30 @@ model School {
   @@map("schools")
 }
  
-// ── Staff / auth ──────────────────────────────────────────────────────────────
+// ── Users ─────────────────────────────────────────────────────────────────────
  
 model User {
-  id                String   @id @default(uuid())
+  id                String     @id @default(uuid())
   schoolId          String
   name              String
-  email             String
+  // @unique here (not @@unique([schoolId, email])) because auth.service.ts
+  // calls db.user.findUnique({ where: { email } }) which requires a
+  // field-level unique constraint. Global email uniqueness also prevents
+  // the same person logging into two schools with the same credentials.
+  email             String     @unique
   passwordHash      String
   role              UserRole
   avatarUrl         String?
   phone             String?
-  preferredLanguage String   @default("en")
+  preferredLanguage String     @default("en")
   fcmToken          String?
-  isActive          Boolean  @default(true)
-  failedLoginCount  Int      @default(0)
-  lockedUntil       DateTime? @db.Timestamptz
-  createdAt         DateTime @default(now()) @db.Timestamptz
-  updatedAt         DateTime @updatedAt @db.Timestamptz
+  teacherConfig     Json?
+  isActive          Boolean    @default(true)
+  failedLoginCount  Int        @default(0)
+  lockedUntil       DateTime?  @db.Timestamptz
+  lastLoginAt       DateTime?  @db.Timestamptz
+  createdAt         DateTime   @default(now()) @db.Timestamptz
+  updatedAt         DateTime   @updatedAt @db.Timestamptz
  
   school              School           @relation(fields: [schoolId], references: [id])
   refreshTokens       RefreshToken[]
@@ -139,13 +145,12 @@ model User {
   attendancesMarked   Attendance[]     @relation("MarkedBy")
   classesAsTeacher    Class[]          @relation("ClassTeacher")
  
-  @@unique([schoolId, email])
   @@index([schoolId])
-  @@index([email])
   @@map("users")
 }
  
-// RESTORED: Removed by other agent — breaks auth.service.ts on next deploy
+// ── Auth tokens ───────────────────────────────────────────────────────────────
+ 
 model RefreshToken {
   id        String   @id @default(uuid())
   userId    String
@@ -163,21 +168,21 @@ model RefreshToken {
 // ── Curriculum ────────────────────────────────────────────────────────────────
  
 model Class {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   schoolId       String
   name           String
   section        String?
   academicYear   String?
   classTeacherId String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now()) @db.Timestamptz
-  updatedAt      DateTime @updatedAt @db.Timestamptz
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @db.Timestamptz
  
-  school        School              @relation(fields: [schoolId], references: [id])
-  classTeacher  User?               @relation("ClassTeacher", fields: [classTeacherId], references: [id])
-  timetableSlots TimetableSlot[]
-  students       Student[]
-  attendances    Attendance[]
+  school              School              @relation(fields: [schoolId], references: [id])
+  classTeacher        User?               @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  timetableSlots      TimetableSlot[]
+  students            Student[]
+  attendances         Attendance[]
   attendanceSummaries AttendanceSummary[]
  
   @@unique([schoolId, name, section])
@@ -191,7 +196,6 @@ model Subject {
   schoolId       String
   name           String
   code           String?
-  // RESTORED: stripped by other agent — timetable generator needs these
   colorHex       String   @default("#7C6FFF")
   periodsPerWeek Int      @default(5)
   isActive       Boolean  @default(true)
@@ -207,7 +211,7 @@ model Subject {
   @@map("subjects")
 }
  
-// RESTORED: Removed by other agent — timetable generator needs teacher-subject mappings
+// TeacherSubject: which teachers can teach which subjects (used by timetable generator)
 model TeacherSubject {
   teacherId     String
   subjectId     String
@@ -215,8 +219,9 @@ model TeacherSubject {
   canSubstitute Boolean  @default(true)
   createdAt     DateTime @default(now()) @db.Timestamptz
  
-  teacher Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  subject User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  // FIX: previously had these backwards (teacher→Subject, subject→User)
+  teacher User    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
  
   @@id([teacherId, subjectId])
   @@index([subjectId])
@@ -286,8 +291,8 @@ model TimetableLock {
   lockedAt   DateTime  @default(now()) @db.Timestamptz
   unlockedAt DateTime? @db.Timestamptz
  
-  school    School @relation(fields: [schoolId], references: [id])
-  lockedBy  User   @relation(fields: [lockedById], references: [id])
+  school   School @relation(fields: [schoolId], references: [id])
+  lockedBy User   @relation(fields: [lockedById], references: [id])
  
   @@index([schoolId])
   @@map("timetable_locks")
@@ -351,13 +356,13 @@ model SwapRequest {
 // ── Students ──────────────────────────────────────────────────────────────────
  
 model Student {
-  id              String     @id @default(uuid())
+  id              String      @id @default(uuid())
   schoolId        String
   classId         String
   name            String
   rollNumber      String?
   admissionNumber String?
-  dateOfBirth     DateTime?  @db.Date
+  dateOfBirth     DateTime?   @db.Date
   gender          Gender?
   bloodGroup      BloodGroup?
   photoUrl        String?
@@ -365,10 +370,10 @@ model Student {
   parentName      String?
   parentPhone     String?
   emergencyContact Json?
-  joinedDate      DateTime?  @db.Date
-  isActive        Boolean    @default(true)
-  createdAt       DateTime   @default(now()) @db.Timestamptz
-  updatedAt       DateTime   @updatedAt @db.Timestamptz
+  joinedDate      DateTime?   @db.Date
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @db.Timestamptz
  
   school              School              @relation(fields: [schoolId], references: [id])
   class               Class               @relation(fields: [classId], references: [id])
@@ -382,7 +387,7 @@ model Student {
   @@map("students")
 }
  
-// ── Attendance (new feature — kept from other agent) ──────────────────────────
+// ── Attendance ────────────────────────────────────────────────────────────────
  
 model Attendance {
   id         String           @id @default(uuid())
@@ -485,10 +490,10 @@ model ResourceBooking {
   purpose       String?
   createdAt     DateTime  @default(now()) @db.Timestamptz
  
-  school    School           @relation(fields: [schoolId], references: [id])
-  resource  Resource         @relation(fields: [resourceId], references: [id])
-  period    PeriodDefinition @relation(fields: [periodId], references: [id])
-  bookedBy  User             @relation(fields: [bookedById], references: [id])
+  school   School           @relation(fields: [schoolId], references: [id])
+  resource Resource         @relation(fields: [resourceId], references: [id])
+  period   PeriodDefinition @relation(fields: [periodId], references: [id])
+  bookedBy User             @relation(fields: [bookedById], references: [id])
  
   @@unique([resourceId, periodId, dayOfWeek, weekStartDate])
   @@index([schoolId])

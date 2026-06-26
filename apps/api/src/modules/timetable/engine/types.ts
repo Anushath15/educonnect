@@ -3,6 +3,9 @@ export interface TeacherData {
   name: string
   subjectIds: string[]
   maxPeriodsPerWeek: number
+  maxPeriodsPerDay: number
+  maxConsecutivePeriods: number
+  preferredDaysOff: string[]
 }
 
 export interface ClassData {
