@@ -6,37 +6,44 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../../src/api/client"
-import { useAuthStore } from "../../src/stores/authStore"
- 
-const STATUS_COLORS: Record<string, string> = {
+
+// Error 1 fix: `token` does not exist on AuthState — the correct field is
+// `accessToken`. But we don't need it here at all: the axios `api` client
+// already adds the Bearer header automatically via its request interceptor.
+// Removed the unused `useAuthStore` import and `authHeader` declaration.
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "HALF_DAY"
+
+interface ClassItem   { id: string; name: string; section?: string }
+interface StudentItem { id: string; name: string; rollNumber?: string }
+interface AttRecord   { studentId: string; status: AttendanceStatus }
+
+const STATUS_COLORS: Record<AttendanceStatus, string> = {
   PRESENT:  "#10B981",
   ABSENT:   "#EF4444",
   LATE:     "#F59E0B",
   EXCUSED:  "#3B82F6",
   HALF_DAY: "#8B5CF6",
 }
-const STATUS_LABELS: Record<string, string> = {
+
+const STATUS_LABELS: Record<AttendanceStatus, string> = {
   PRESENT:  "Present",
   ABSENT:   "Absent",
   LATE:     "Late",
   EXCUSED:  "Excused",
   HALF_DAY: "Half Day",
 }
-type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "HALF_DAY"
- 
-interface ClassItem   { id: string; name: string; section?: string }
-interface StudentItem { id: string; name: string; rollNumber?: string }
-interface AttRecord   { studentId: string; status: AttendanceStatus }
- 
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function AttendanceScreen() {
-  const { token }      = useAuthStore()
-  const queryClient    = useQueryClient()
+  const queryClient = useQueryClient()
   const [selectedClass, setSelectedClass] = useState("")
   const [selectedDate]                    = useState(new Date().toISOString().split("T")[0])
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceStatus>>({})
- 
-  const authHeader = { Authorization: `Bearer ${token}` }
- 
+
   const { data: classes } = useQuery<ClassItem[]>({
     queryKey: ["classes"],
     queryFn:  async () => {
@@ -44,7 +51,7 @@ export default function AttendanceScreen() {
       return res.data.data
     },
   })
- 
+
   const { data: students } = useQuery<StudentItem[]>({
     queryKey: ["students", selectedClass],
     enabled:  !!selectedClass,
@@ -53,7 +60,7 @@ export default function AttendanceScreen() {
       return res.data.data
     },
   })
- 
+
   const { data: existingAttendance } = useQuery<AttRecord[]>({
     queryKey: ["attendance", selectedClass, selectedDate],
     enabled:  !!selectedClass,
@@ -64,7 +71,7 @@ export default function AttendanceScreen() {
       return res.data.data
     },
   })
- 
+
   const markMutation = useMutation({
     mutationFn: async (records: { studentId: string; status: AttendanceStatus }[]) =>
       api.post("/v1/attendance/bulk", {
@@ -76,20 +83,21 @@ export default function AttendanceScreen() {
       queryClient.invalidateQueries({ queryKey: ["attendance", selectedClass, selectedDate] })
     },
   })
- 
+
   const toggleStatus = (studentId: string) => {
-    const statuses: AttendanceStatus[] = ["PRESENT", "ABSENT", "LATE", "EXCUSED", "HALF_DAY"]
+    const order: AttendanceStatus[] = ["PRESENT", "ABSENT", "LATE", "EXCUSED", "HALF_DAY"]
     const current   = attendanceMap[studentId] ?? "PRESENT"
-    const nextIndex = (statuses.indexOf(current) + 1) % statuses.length
-    setAttendanceMap((prev) => ({ ...prev, [studentId]: statuses[nextIndex] }))
+    const nextIndex = (order.indexOf(current) + 1) % order.length
+    setAttendanceMap((prev) => ({ ...prev, [studentId]: order[nextIndex] }))
   }
- 
+
+  // Error 2 fix: parameter `a` was implicit `any` — added explicit `: AttRecord` type
   const getStatus = (studentId: string): AttendanceStatus => {
     if (attendanceMap[studentId]) return attendanceMap[studentId]
-    const existing = existingAttendance?.find((a) => a.studentId === studentId)
+    const existing = existingAttendance?.find((a: AttRecord) => a.studentId === studentId)
     return existing?.status ?? "PRESENT"
   }
- 
+
   const handleSave = () => {
     const records = Object.entries(attendanceMap).map(([studentId, status]) => ({
       studentId,
@@ -97,41 +105,47 @@ export default function AttendanceScreen() {
     }))
     if (records.length > 0) markMutation.mutate(records)
   }
- 
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Attendance</Text>
- 
+      <Text style={styles.date}>{selectedDate}</Text>
+
+      {/* Class selector */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classRow}>
-        {classes?.map((cls) => (
+        {/* Error 3 fix: parameter `cls` was implicit `any` — added explicit `: ClassItem` type */}
+        {classes?.map((cls: ClassItem) => (
           <TouchableOpacity
             key={cls.id}
-            style={[styles.classChip, selectedClass === cls.id && styles.classChipActive]}
+            style={[styles.chip, selectedClass === cls.id && styles.chipActive]}
             onPress={() => setSelectedClass(cls.id)}
           >
-            <Text style={[styles.classChipText, selectedClass === cls.id && styles.classChipTextActive]}>
-              {cls.name} {cls.section}
+            <Text style={[styles.chipText, selectedClass === cls.id && styles.chipTextActive]}>
+              {cls.name}{cls.section ? ` ${cls.section}` : ""}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
- 
-      <Text style={styles.dateText}>{selectedDate}</Text>
- 
+
+      {/* Student list */}
       <FlatList
         data={students}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const status = getStatus(item.id)
           return (
-            <TouchableOpacity style={styles.studentRow} onPress={() => toggleStatus(item.id)}>
+            <TouchableOpacity style={styles.row} onPress={() => toggleStatus(item.id)}>
               <View style={styles.studentInfo}>
                 <Text style={styles.studentName}>{item.name}</Text>
-                <Text style={styles.rollNumber}>Roll: {item.rollNumber}</Text>
+                {item.rollNumber ? (
+                  <Text style={styles.roll}>Roll: {item.rollNumber}</Text>
+                ) : null}
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] + "20" }]}>
-                <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[status] }]} />
-                <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>
+              <View style={[styles.badge, { backgroundColor: STATUS_COLORS[status] + "22" }]}>
+                <View style={[styles.dot, { backgroundColor: STATUS_COLORS[status] }]} />
+                <Text style={[styles.badgeText, { color: STATUS_COLORS[status] }]}>
                   {STATUS_LABELS[status]}
                 </Text>
               </View>
@@ -139,43 +153,50 @@ export default function AttendanceScreen() {
           )
         }}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Select a class to view students</Text>
+          <Text style={styles.empty}>
+            {selectedClass ? "No students in this class" : "Select a class to begin"}
+          </Text>
         }
+        contentContainerStyle={styles.list}
       />
- 
-      {selectedClass && (
+
+      {/* Save button — only shown when a class is selected */}
+      {selectedClass ? (
         <TouchableOpacity
-          style={[styles.saveButton, markMutation.isPending && styles.saveButtonDisabled]}
+          style={[styles.saveBtn, markMutation.isPending && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={markMutation.isPending}
         >
-          <Text style={styles.saveButtonText}>
-            {markMutation.isPending ? "Saving..." : "Save Attendance"}
+          <Text style={styles.saveBtnText}>
+            {markMutation.isPending ? "Saving…" : "Save Attendance"}
           </Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </SafeAreaView>
   )
 }
- 
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container:            { flex: 1, backgroundColor: "#0F0F14", padding: 16 },
-  title:                { fontSize: 28, fontWeight: "700", color: "#FFFFFF", marginBottom: 16 },
-  classRow:             { flexDirection: "row", marginBottom: 16, maxHeight: 50 },
-  classChip:            { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: "#1E1E2E", marginRight: 8 },
-  classChipActive:      { backgroundColor: "#7C6FFF" },
-  classChipText:        { fontSize: 14, color: "#94A3B8", fontWeight: "500" },
-  classChipTextActive:  { color: "#FFFFFF" },
-  dateText:             { fontSize: 16, color: "#64748B", marginBottom: 12, fontWeight: "500" },
-  studentRow:           { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: "#1E1E2E", borderRadius: 12, marginBottom: 8 },
-  studentInfo:          { flex: 1 },
-  studentName:          { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
-  rollNumber:           { fontSize: 13, color: "#64748B", marginTop: 2 },
-  statusBadge:          { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  statusDot:            { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  statusText:           { fontSize: 13, fontWeight: "600" },
-  emptyText:            { textAlign: "center", color: "#64748B", marginTop: 40, fontSize: 16 },
-  saveButton:           { backgroundColor: "#7C6FFF", paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 8 },
-  saveButtonDisabled:   { opacity: 0.6 },
-  saveButtonText:       { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  container:       { flex: 1, backgroundColor: "#0F0F14", paddingHorizontal: 16, paddingTop: 16 },
+  title:           { fontSize: 28, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
+  date:            { fontSize: 14, color: "#64748B", marginBottom: 12 },
+  classRow:        { flexGrow: 0, marginBottom: 16 },
+  chip:            { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: "#1E1E2E", marginRight: 8 },
+  chipActive:      { backgroundColor: "#7C6FFF" },
+  chipText:        { fontSize: 14, color: "#64748B", fontWeight: "500" },
+  chipTextActive:  { color: "#FFFFFF" },
+  list:            { paddingBottom: 80 },
+  row:             { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, backgroundColor: "#1E1E2E", borderRadius: 12, marginBottom: 8 },
+  studentInfo:     { flex: 1 },
+  studentName:     { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
+  roll:            { fontSize: 13, color: "#64748B", marginTop: 2 },
+  badge:           { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  dot:             { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
+  badgeText:       { fontSize: 13, fontWeight: "600" },
+  empty:           { textAlign: "center", color: "#64748B", marginTop: 60, fontSize: 16 },
+  saveBtn:         { position: "absolute", bottom: 16, left: 16, right: 16, backgroundColor: "#7C6FFF", paddingVertical: 16, borderRadius: 12, alignItems: "center" },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText:     { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
 })
