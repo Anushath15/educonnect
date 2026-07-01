@@ -1,25 +1,26 @@
 import Fastify, { type FastifyInstance } from "fastify"
-import helmet       from "@fastify/helmet"
-import cors         from "@fastify/cors"
-import cookie       from "@fastify/cookie"
-import multipart    from "@fastify/multipart"
-import rateLimit    from "@fastify/rate-limit"
+import helmet    from "@fastify/helmet"
+import cors      from "@fastify/cors"
+import cookie    from "@fastify/cookie"
+import multipart from "@fastify/multipart"
+import rateLimit from "@fastify/rate-limit"
 import { env }      from "./config/env.js"
 import { AppError } from "./core/errors/AppError.js"
-import { swaggerPlugin }        from "./core/swagger.js"
-import { authRoutes }           from "./modules/auth/auth.routes.js"
-import { schoolRoutes }         from "./modules/school/school.routes.js"
-import { classesRoutes }        from "./modules/classes/classes.routes.js"
-import { subjectsRoutes }       from "./modules/subjects/subjects.routes.js"
-import { periodsRoutes }        from "./modules/periods/periods.routes.js"
-import { teachersRoutes }       from "./modules/teachers/teachers.routes.js"
-import { studentsRoutes }       from "./modules/students/students.routes.js"
-import { timetableRoutes }      from "./modules/timetable/timetable.routes.js"
-import { substitutionRoutes }   from "./modules/substitution/substitution.routes.js"
-import { swapRoutes }           from "./modules/swap/swap.routes.js"
-import { announcementsRoutes }  from "./modules/announcements/announcements.routes.js"
-import { resourceRoutes }       from "./modules/resources/resource.routes.js"
-import { attendanceRoutes }     from "./modules/attendance/attendance.routes.js"
+import { swaggerPlugin }       from "./core/swagger.js"
+import { authRoutes }          from "./modules/auth/auth.routes.js"
+import { staffRoutes }         from "./modules/staff/staff.routes.js"
+import { schoolRoutes }        from "./modules/school/school.routes.js"
+import { classesRoutes }       from "./modules/classes/classes.routes.js"
+import { subjectsRoutes }      from "./modules/subjects/subjects.routes.js"
+import { periodsRoutes }       from "./modules/periods/periods.routes.js"
+import { teachersRoutes }      from "./modules/teachers/teachers.routes.js"
+import { studentsRoutes }      from "./modules/students/students.routes.js"
+import { timetableRoutes }     from "./modules/timetable/timetable.routes.js"
+import { substitutionRoutes }  from "./modules/substitution/substitution.routes.js"
+import { swapRoutes }          from "./modules/swap/swap.routes.js"
+import { announcementsRoutes } from "./modules/announcements/announcements.routes.js"
+import { resourceRoutes }      from "./modules/resources/resource.routes.js"
+import { attendanceRoutes }    from "./modules/attendance/attendance.routes.js"
  
 export async function buildApp(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -28,37 +29,30 @@ export async function buildApp(): Promise<FastifyInstance> {
       : true,
   })
  
-  // ── Plugins ──────────────────────────────────────────────────────────────
- 
   await fastify.register(swaggerPlugin)
   await fastify.register(helmet, {
     contentSecurityPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
   await fastify.register(cors, {
-    origin:      env.FRONTEND_URL,
+    origin: (origin, cb) => {
+      const allowed = [env.FRONTEND_URL, env.WEB_ADMIN_URL]
+      if (!origin || allowed.includes(origin)) return cb(null, true)
+      cb(new Error(`CORS: origin ${origin} not allowed`), false)
+    },
     credentials: true,
-    methods:     ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
   await fastify.register(cookie, { secret: env.JWT_ACCESS_SECRET })
   await fastify.register(multipart, { limits: { fileSize: 5 * 1024 * 1024 } })
- 
-  // Global rate limit: 100 requests / minute per IP.
-  // Auth routes apply a stricter 5 req/min via per-route config.
   await fastify.register(rateLimit, {
-    max:          100,
-    timeWindow:   "1 minute",
+    max: 100, timeWindow: "1 minute",
     keyGenerator: (req) => req.ip || "unknown",
     errorResponseBuilder: (_req, context) => ({
       success: false,
-      error: {
-        code:    "RATE_LIMIT",
-        message: `Too many requests. Retry after ${context.after}`,
-      },
+      error: { code: "RATE_LIMIT", message: `Too many requests. Retry after ${context.after}` },
     }),
   })
- 
-  // ── Error handler ─────────────────────────────────────────────────────────
  
   fastify.setErrorHandler((error, _request, reply) => {
     if (error instanceof AppError) {
@@ -74,25 +68,14 @@ export async function buildApp(): Promise<FastifyInstance> {
     })
   })
  
-  // ── Health check ─────────────────────────────────────────────────────────
- 
   fastify.get("/health", async () => ({
-    status:    "ok",
-    timestamp: new Date().toISOString(),
-    uptime:    process.uptime(),
+    status: "ok", timestamp: new Date().toISOString(), uptime: process.uptime(),
   }))
  
-  // ── Routes ────────────────────────────────────────────────────────────────
-  //
-  // Each module owns its full route path (e.g. /v1/auth/login, /v1/classes).
-  // Do NOT add prefix wrappers here — they cause double-prefixing because
-  // routes already include the /v1/module-name segment in their path strings.
-  //
-  // Correct: mobile calls /v1/auth/login → server has /v1/auth/login ✓
-  // Broken:  fastify.register(authRoutes, { prefix: "/auth" }) under
-  //          { prefix: "/api/v1" } → route ends up at /api/v1/auth/v1/auth/login ✗
- 
+  // Routes use full paths (/v1/auth/login, /v1/classes, …)
+  // Do NOT add Fastify prefix wrappers — they cause double-prefixing
   await fastify.register(authRoutes)
+  await fastify.register(staffRoutes)
   await fastify.register(schoolRoutes)
   await fastify.register(classesRoutes)
   await fastify.register(subjectsRoutes)

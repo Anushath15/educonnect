@@ -350,6 +350,8 @@ model SwapRequest {
   @@index([schoolId])
   @@index([requesterId])
   @@index([receiverId])
+  @@index([requesterSlotId])
+  @@index([receiverSlotId])
   @@map("swap_requests")
 }
  
